@@ -1,0 +1,313 @@
+/* ─────────────────────────────────────────────────────────────
+   Shared primitives: button, input, progress, pill, rule
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Button ─────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: 40px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-ctl);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.btn--lg {
+  height: 42px;
+  padding: 0 var(--s-5);
+  font-size: var(--fs-base);
+}
+
+/* Primary — the blue is spent here and almost nowhere else */
+.btn--primary {
+  background: var(--blue);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--blue-deep);
+}
+
+/* Secondary — bordered, quiet until hover */
+.btn--secondary {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface-hover);
+}
+
+/* Ghost — for topbar and inline actions */
+.btn--ghost {
+  color: var(--ink-2);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--blue-wash);
+  color: var(--blue-ink);
+}
+
+.btn--danger {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--err);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--err-bg);
+  border-color: rgba(180, 69, 60, 0.3);
+}
+
+.btn--icon {
+  width: 36px;
+  padding: 0;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+/* ── Field ──────────────────────────────────────────────── */
+
+.field {
+  display: block;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: var(--s-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.field__hint {
+  margin-top: var(--s-2);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.input,
+.select {
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--s-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  font-size: var(--fs-sm);
+  transition:
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+.select {
+  appearance: none;
+  padding-right: var(--s-6);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236b7078' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s-3) center;
+  cursor: pointer;
+}
+
+.input:hover,
+.select:hover {
+  border-color: var(--line-strong);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-wash);
+}
+
+.input::placeholder {
+  color: var(--ink-3);
+}
+
+/* Range — the threshold sliders */
+.range {
+  width: 100%;
+  height: 20px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(23, 25, 30, 0.2);
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(23, 25, 30, 0.2);
+}
+
+/* Checkbox — square, blue when on */
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.check__box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease);
+}
+
+.check input:checked + .check__box {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.check__box svg {
+  opacity: 0;
+  color: #fff;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.check input:checked + .check__box svg {
+  opacity: 1;
+}
+
+.check__text {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ── Progress ───────────────────────────────────────────── */
+
+.progress {
+  height: 3px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 999px;
+  transition: width var(--dur-2) var(--ease);
+}
+
+/* Indeterminate — a drifting segment, no spinner theatre */
+.progress--busy .progress__fill {
+  width: 32% !important;
+  animation: drift 1.4s var(--ease) infinite;
+}
+
+@keyframes drift {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(340%); }
+}
+
+/* ── Pill ───────────────────────────────────────────────── */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 2px var(--s-2);
+  border-radius: 5px;
+  background: var(--bg-sunken);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+button.pill:hover {
+  background: var(--blue-wash);
+  color: var(--blue-ink);
+}
+
+.pill--on {
+  background: var(--blue-tint);
+  color: var(--blue-ink);
+}
+
+/* ── Section label ──────────────────────────────────────── */
+
+.eyebrow {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.rule {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+}

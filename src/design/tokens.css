@@ -1,0 +1,89 @@
+/* ─────────────────────────────────────────────────────────────
+   Design tokens — Web Datasets Tagger
+   Theme: forget-me-not blue (#5B9BD5) on warm white.
+   Blue is reserved for interactive elements only. Never decoration.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* Surfaces — warm white, deliberately not #fff */
+  --bg:            #fbfaf8;
+  --bg-sunken:     #f4f2ee;
+  --surface:       #ffffff;
+  --surface-hover: #fcfbf9;
+
+  /* Ink — deep charcoal, deliberately not #000 */
+  --ink:      #17191e;
+  --ink-2:    #6b7078;
+  --ink-3:    #9aa0a8;
+
+  /* Hairlines */
+  --line:       rgba(23, 25, 30, 0.09);
+  --line-strong: rgba(23, 25, 30, 0.16);
+
+  /* Primary — forget-me-not, reserved for actions and focus */
+  --blue:        #5b9bd5;
+  --blue-deep:   #4a8bc2;  /* hover / active */
+  --blue-bright: #7cb5e3;  /* focus glow */
+  --blue-wash:   rgba(91, 155, 213, 0.08);
+  --blue-tint:   rgba(91, 155, 213, 0.14);
+  --blue-ink:    #2f6ea8;  /* blue readable as text on light bg */
+
+  /* Semantic — used sparingly, always paired with an icon or label */
+  --warn:    #b8860b;
+  --warn-bg: rgba(184, 134, 11, 0.08);
+  --err:     #b4453c;
+  --err-bg:  rgba(180, 69, 60, 0.08);
+  --ok:      #3f7d52;
+  --ok-bg:   rgba(63, 125, 82, 0.08);
+
+  /* Type */
+  --font-serif: 'Newsreader Variable', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+  --font-sans:  'Inter Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+                'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Type scale — 1.25 ratio, restrained */
+  --fs-xs:   0.6875rem;  /* 11px */
+  --fs-sm:   0.8125rem;  /* 13px */
+  --fs-base: 0.9375rem;  /* 15px */
+  --fs-md:   1.0625rem;  /* 17px */
+  --fs-lg:   1.375rem;   /* 22px */
+  --fs-xl:   2rem;       /* 32px */
+  --fs-2xl:  2.75rem;    /* 44px */
+
+  /* Space — 4px base */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+
+  /* Radius — exactly two tiers for controls and containers */
+  --r-ctl: 8px;
+  --r-box: 14px;
+
+  /* One shadow, not five */
+  --shadow: 0 1px 2px rgba(23, 25, 30, 0.04), 0 8px 24px rgba(23, 25, 30, 0.045);
+  --shadow-lift: 0 2px 4px rgba(23, 25, 30, 0.05), 0 16px 40px rgba(23, 25, 30, 0.08);
+
+  /* Motion — quick, understated, never bouncy */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 380ms;
+
+  --topbar-h: 60px;
+  --measure: 1240px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+  }
+}
