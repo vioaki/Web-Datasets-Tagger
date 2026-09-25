@@ -1,0 +1,3130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Datasets Tagger 1.3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.20.1/ort.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --forget-me-not-blue: #5B9BD5;
+            --forget-me-not-light: #7CB5E3;
+            --forget-me-not-dark: #4A8BC2;
+            --forget-me-not-pale: #E6F2FF;
+            --forget-me-not-soft: #B8D4F1;
+            
+            --primary-gradient: linear-gradient(135deg, #5B9BD5 0%, #7CB5E3 100%);
+            --secondary-gradient: linear-gradient(135deg, #4A8BC2 0%, #5B9BD5 100%);
+            --success-gradient: linear-gradient(135deg, #5B9BD5 0%, #87CEEB 100%);
+            --vlm-api-gradient: linear-gradient(135deg, #4A8BC2 0%, #6BA6E5 100%);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(91, 155, 213, 0.2);
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #F0F7FF 0%, #E6F2FF 50%, #F5F9FF 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(91, 155, 213, 0.06) 0%, transparent 40%),
+                        radial-gradient(circle at 80% 20%, rgba(124, 181, 227, 0.05) 0%, transparent 40%),
+                        radial-gradient(circle at 20% 80%, rgba(184, 212, 241, 0.08) 0%, transparent 40%);
+            animation: backgroundFloat 30s ease-in-out infinite;
+            z-index: -1;
+        }
+        @keyframes backgroundFloat {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.6; }
+            33% { transform: translate(30px, -30px) rotate(120deg); opacity: 0.8; }
+            66% { transform: translate(-20px, 20px) rotate(240deg); opacity: 0.7; }
+        }
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(91, 155, 213, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(91, 155, 213, 0.15);
+            border-color: rgba(91, 155, 213, 0.3);
+        }
+        .sidebar {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 100%);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(91, 155, 213, 0.2);
+            position: relative;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            background: linear-gradient(180deg, var(--forget-me-not-pale) 0%, transparent 100%);
+            pointer-events: none;
+        }
+        .main-title {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 800;
+            text-shadow: 0 0 30px rgba(91, 155, 213, 0.3);
+            animation: titleGlow 4s ease-in-out infinite alternate;
+        }
+        @keyframes titleGlow {
+            0% { filter: brightness(1) saturate(1); }
+            100% { filter: brightness(1.1) saturate(1.15); }
+        }
+        .btn-primary, .btn-vlm-api {
+            color: white;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-primary {
+            background: var(--primary-gradient);
+            box-shadow: 0 4px 15px rgba(91, 155, 213, 0.35);
+        }
+         .btn-vlm-api {
+            background: var(--vlm-api-gradient);
+            box-shadow: 0 4px 15px rgba(74, 139, 194, 0.35);
+        }
+        .btn-primary::before, .btn-vlm-api::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        .btn-primary:hover::before, .btn-vlm-api:hover::before {
+            left: 100%;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(91, 155, 213, 0.45);
+        }
+         .btn-vlm-api:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(74, 139, 194, 0.45);
+        }
+        .btn-primary:active, .btn-vlm-api:active {
+            transform: translateY(0);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #5B9BD5 0%, #87CEEB 100%);
+            color: white;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(91, 155, 213, 0.3);
+        }
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(135, 206, 235, 0.4);
+        }
+        .btn-secondary {
+            background: var(--success-gradient);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(135, 206, 235, 0.3);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(135, 206, 235, 0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 100%);
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(255, 182, 193, 0.3);
+        }
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 182, 193, 0.4);
+        }
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--forget-me-not-blue);
+            border: 2px solid rgba(91, 155, 213, 0.3);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-outline:hover {
+            background: var(--forget-me-not-pale);
+            border-color: var(--forget-me-not-blue);
+            transform: translateY(-1px);
+        }
+        .input-field, select, input[type="password"], input[type="text"] {
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(91, 155, 213, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0.65rem 1rem;
+            border-radius: 0.75rem;
+        }
+        .input-field:focus, select:focus, input[type="password"]:focus, input[type="text"]:focus {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: var(--forget-me-not-blue);
+            box-shadow: 0 0 0 4px rgba(91, 155, 213, 0.1);
+            transform: translateY(-1px);
+            outline: none;
+        }
+        .input-field-subtle-accent {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(91, 155, 213, 0.15);
+        }
+        .input-field-subtle-accent:focus {
+            background: rgba(255, 255, 255, 1);
+            border-color: var(--forget-me-not-blue);
+            box-shadow: 0 0 0 4px rgba(91, 155, 213, 0.1);
+        }
+        input[type="file"].input-field-file {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(91, 155, 213, 0.2);
+            color: #4a5568;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+        }
+        input[type="file"].input-field-file::file-selector-button {
+            background: linear-gradient(135deg, var(--forget-me-not-pale), var(--forget-me-not-soft));
+            color: var(--forget-me-not-dark);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 0.75rem;
+            transition: all 0.2s ease-in-out;
+        }
+        input[type="file"].input-field-file::file-selector-button:hover {
+            background: linear-gradient(135deg, var(--forget-me-not-soft), var(--forget-me-not-light));
+            transform: translateY(-1px);
+        }
+        input[type="file"].input-field-file:hover {
+            border-color: rgba(91, 155, 213, 0.4);
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 26px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        input:checked + .slider {
+            background: var(--primary-gradient);
+        }
+        input:checked + .slider:before {
+            transform: translateX(22px);
+            box-shadow: 0 2px 12px rgba(91, 155, 213, 0.3);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+            border-radius: 5px;
+            outline: none;
+            padding: 0;
+            transition: all 0.3s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-gradient);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(91, 155, 213, 0.3);
+            transition: all 0.3s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 20px rgba(91, 155, 213, 0.4);
+        }
+        .progress-bar-background {
+            width: 100%;
+            height: 12px;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--primary-gradient);
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar-fill.vlm-api {
+            background: var(--vlm-api-gradient) !important;
+        }
+        .progress-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background-image: linear-gradient(
+                -45deg,
+                rgba(255, 255, 255, 0.2) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.2) 75%,
+                transparent 75%,
+                transparent
+            );
+            background-size: 20px 20px;
+            animation: progressStripes 1s linear infinite;
+        }
+        @keyframes progressStripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 0; }
+        }
+        .progress-bar-fill.error {
+            background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 100%) !important;
+        }
+        .progress-bar-fill.success {
+            background: var(--success-gradient) !important;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+        }
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+        }
+        .tab-button.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(91, 155, 213, 0.3);
+        }
+        .toast {
+            padding: 1rem 1.5rem;
+            border-radius: 16px;
+            color: white;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transform: translateX(100%) scale(0.8);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 350px;
+            word-wrap: break-word;
+            font-weight: 500;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+        .toast.info {
+            background: rgba(91, 155, 213, 0.95);
+        }
+        .toast.success {
+            background: rgba(135, 206, 235, 0.95);
+        }
+        .toast.error {
+            background: rgba(255, 182, 193, 0.95);
+        }
+        .toast.warning {
+            background: rgba(255, 223, 186, 0.95);
+            color: #1f2937;
+        }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(91, 155, 213, 0.2);
+            border-top-color: var(--forget-me-not-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .spinner.vlm-api {
+            border-top-color: var(--forget-me-not-dark);
+            border-right-color: var(--forget-me-not-light);
+            border-bottom-color: var(--forget-me-not-blue);
+            border-left-color: var(--forget-me-not-soft);
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .card-appear {
+            animation: cardAppear 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes cardAppear {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .help-modal-content {
+            animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes modalSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .help-tab-button.active {
+            background: linear-gradient(135deg, var(--forget-me-not-pale), var(--forget-me-not-soft));
+            color: var(--forget-me-not-dark);
+            font-weight: 600;
+            transform: translateX(4px);
+        }
+        .file-upload-area {
+            border: 2px dashed rgba(91, 155, 213, 0.3);
+            background: rgba(255, 255, 255, 0.7);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .file-upload-area:hover, .file-upload-area.dragover {
+            border-color: var(--forget-me-not-blue);
+            background: var(--forget-me-not-pale);
+            transform: translateY(-2px);
+        }
+        .tag-pill {
+            background: linear-gradient(135deg, rgba(91, 155, 213, 0.1), rgba(124, 181, 227, 0.1));
+            color: var(--forget-me-not-dark);
+            border: 1px solid rgba(91, 155, 213, 0.2);
+            animation-name: tagPop;
+            animation-duration: 0.4s;
+            animation-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            animation-fill-mode: both;
+            animation-delay: calc(var(--index, 0) * 0.05s);
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+        .tag-pill:hover {
+            background: linear-gradient(135deg, rgba(91, 155, 213, 0.2), rgba(124, 181, 227, 0.2));
+            transform: translateY(-1px);
+        }
+        .tag-pill-api {
+            background: linear-gradient(135deg, #E6F2FF, #D1E7FF);
+            color: var(--forget-me-not-dark);
+            border: 1px solid var(--forget-me-not-soft);
+        }
+        .tag-pill-api:hover {
+            background: linear-gradient(135deg, #D1E7FF, #B8D4F1);
+            transform: translateY(-1px);
+        }
+        @keyframes tagPop {
+            from {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, rgba(91, 155, 213, 0.5), rgba(124, 181, 227, 0.5));
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, rgba(91, 155, 213, 0.7), rgba(124, 181, 227, 0.7));
+            background-clip: content-box;
+        }
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 40%;
+            }
+            #results-container {
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            }
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 50vh;
+                overflow-y: auto;
+                border-right: none;
+                border-bottom: 1px solid rgba(91, 155, 213, 0.2);
+            }
+            .main-content {
+                width: 100%;
+                padding-top: 1rem;
+            }
+             .help-modal-content {
+                max-height: calc(85vh - 120px);
+            }
+            div.flex.h-screen.overflow-hidden {
+                 flex-direction: column;
+                 height: auto;
+                 overflow-y: auto;
+            }
+            #helpModal > div > div.flex {
+                flex-direction: column;
+                height: calc(85vh - 80px);
+            }
+            #helpModal nav, #helpModal .w-full.md\\:w-3\\/4 {
+                width: 100%;
+            }
+            .grid-cols-1.md\\:grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+            .flex-col.sm\\:flex-row {
+                flex-direction: column;
+            }
+        }
+        button:focus, input:focus, select:focus {
+            outline: none;
+        }
+        ::selection {
+            background: rgba(91, 155, 213, 0.25);
+        }
+        .hidden {
+            display: none !important;
+        }
+        /* 额外的装饰性元素 */
+        .decoration-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary-gradient);
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .glass-button-icon {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(91, 155, 213, 0.1);
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+    <div id="toast-container" class="fixed top-6 right-6 z-50 flex flex-col gap-3 items-end"></div>
+
+    <div class="flex flex-col lg:flex-row h-screen overflow-hidden">
+        <aside class="sidebar w-full lg:w-1/3 xl:w-1/4 h-auto lg:h-full overflow-y-auto p-6 space-y-6 shrink-0">
+            <div class="text-center mb-8">
+                <h1 class="main-title text-3xl font-bold mb-2">Web Datasets Tagger</h1>
+                <p class="text-sm text-gray-600 opacity-80">WaifuDiffusionTagger & VLM Tagger</p>
+            </div>
+
+            <button id="showHelpModalButton" class="w-full glass-card rounded-2xl p-4 flex items-center justify-center text-sm font-medium text-gray-700 hover:text-gray-900 transition-all duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                帮助与关于
+            </button>
+
+            <div class="glass-card rounded-2xl p-6 space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <div class="decoration-dot mr-3"></div>
+                    标签模式
+                </h2>
+                <div>
+                    <label for="taggerEngineSelect" class="block text-sm font-medium text-gray-600 mb-2">选择模式:</label>
+                    <select id="taggerEngineSelect" class="input-field w-full rounded-xl py-2.5 px-4">
+                        <option value="booru">Booru Tags (本地)</option>
+                        <option value="nl-tagger">NL Captions (在线)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="booruTaggerSettings" class="glass-card rounded-2xl p-6 space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <div class="decoration-dot mr-3"></div>
+                    Booru Tags 模型来源
+                </h2>
+                <div class="flex space-x-2">
+                    <button id="modelSourceWebButton" class="tab-button flex-1 active">预设模型</button>
+                    <button id="modelSourceLocalButton" class="tab-button flex-1">本地模型</button>
+                </div>
+
+                <div id="webModelSection" class="space-y-4">
+                    <div>
+                        <label for="predefinedModelSelect" class="block text-sm font-medium text-gray-600 mb-2">选择模型:</label>
+                        <select id="predefinedModelSelect" class="input-field-subtle-accent w-full rounded-xl py-2.5 px-4"> <option value="">-- 请选择一个模型 --</option>
+                        </select>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="downloadAndLoadWebModelButton" class="btn-primary py-3 px-4 text-sm rounded-xl flex-1" disabled>选择模型后操作</button>
+                        <button id="deleteLocalModelButton" class="btn-danger py-3 px-4 text-sm rounded-xl hidden">删除本地副本</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <label class="switch">
+                                <input type="checkbox" id="useHfMirrorCheckbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <label for="useHfMirrorCheckbox" class="text-sm text-gray-600 cursor-pointer">使用 HF-Mirror 下载</label>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <label class="switch">
+                                <input type="checkbox" id="saveModelLocallyCheckbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <label for="saveModelLocallyCheckbox" class="text-sm text-gray-600 cursor-pointer">下载后永久保存在本地</label>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-500" id="webModelInfoSpan"></div>
+                    <div class="hidden" id="webModelProgressArea">
+                        <div class="text-xs text-gray-500 mb-2" id="webModelProgressLabel"></div>
+                        <div class="progress-bar-background">
+                            <div class="progress-bar-fill" id="webModelProgressBarFill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="localModelInputs" class="space-y-4 hidden">
+                    <div>
+                        <label for="modelFile" class="block text-sm font-medium text-gray-600 mb-2">ONNX 模型 (.onnx):</label>
+                        <input type="file" id="modelFile" accept=".onnx" class="input-field-file">
+                        <div class="text-sm text-gray-500 mt-1" id="modelFileInfoSpan">未选择模型</div>
+                    </div>
+                    <div>
+                        <label for="tagsFile" class="block text-sm font-medium text-gray-600 mb-2">标签 CSV 文件 (.csv):</label>
+                        <input type="file" id="tagsFile" accept=".csv" class="input-field-file">
+                        <div class="text-sm text-gray-500 mt-1" id="tagsFileInfoSpan">未选择标签文件</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="nlTaggerApiSettings" class="glass-card rounded-2xl p-6 space-y-4 hidden">
+                <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <div class="decoration-dot mr-3"></div>
+                    NL Captions API 设置
+                </h2>
+                <div>
+                    <label for="nlApiUrl" class="block text-sm font-medium text-gray-600 mb-2">API URL (完整端点):</label>
+                    <input type="text" id="nlApiUrl" placeholder="例如: https://api.openai.com/v1/chat/completions" class="input-field w-full rounded-xl py-2.5 px-4">
+                </div>
+                <div>
+                    <label for="nlApiKey" class="block text-sm font-medium text-gray-600 mb-2">API Key:</label>
+                    <input type="password" id="nlApiKey" placeholder="输入您的 API Key" class="input-field w-full rounded-xl py-2.5 px-4">
+                </div>
+                <div>
+                    <label for="nlApiModelName" class="block text-sm font-medium text-gray-600 mb-2">API 模型名称:</label>
+                    <input type="text" id="nlApiModelName" list="commonApiModels" placeholder="例如: gemini-2.5-pro-preview-05-06" class="input-field w-full rounded-xl py-2.5 px-4">
+                    <datalist id="commonApiModels">
+                        <option value="gemini-2.5-pro-preview-05-06"></option>
+                        <option value="gpt-4o"></option>
+                        </datalist>
+                    <p class="text-xs text-gray-500 mt-1">API参数将保存在浏览器本地存储中。</p>
+                    <div class="mt-4 pt-4 border-t border-gray-200 border-opacity-50 space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <label class="switch">
+                                <input type="checkbox" id="enableAdvancedApiParams">
+                                <span class="slider"></span>
+                            </label>
+                            <label for="enableAdvancedApiParams" class="text-sm font-medium text-gray-600 cursor-pointer">
+                                启用高级API参数 (Temperature / Top P)
+                            </label>
+                        </div>
+ 
+                        <div id="advancedApiParamsContainer" class="space-y-4 hidden">
+                            <div>
+                                <label for="temperatureSlider" class="block text-sm font-medium text-gray-600 mb-2">Temperature:</label>
+                                <div class="flex items-center space-x-3">
+                                    <input type="range" id="temperatureSlider" value="0.7" min="0" max="2" step="0.01" class="flex-grow">
+                                    <div class="bg-white px-3 py-1 rounded-lg border text-sm font-medium w-16 text-center" id="temperatureValue">1.0</div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="topPSlider" class="block text-sm font-medium text-gray-600 mb-2">Top P:</label>
+                                <div class="flex items-center space-x-3">
+                                    <input type="range" id="topPSlider" value="0.9" min="0" max="1" step="0.01" class="flex-grow">
+                                    <div class="bg-white px-3 py-1 rounded-lg border text-sm font-medium w-16 text-center" id="topPValue">0.95</div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">注意：请确保您的API端点支持这些参数，否则可能导致请求失败。</p>
+                        </div>
+                    </div>
+                </div>
+                 <div class="text-sm text-gray-500" id="nlTaggerModelInfoSpan"></div>
+            </div>
+
+
+            <div id="booruTaggerGlobalParamsSettings" class="glass-card rounded-2xl p-6 space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <div class="decoration-dot mr-3"></div>
+                    Booru Tags 全局参数
+                </h2>
+                <div class="space-y-5">
+                    <div>
+                        <label for="modelInputSize" class="block text-sm font-medium text-gray-600 mb-2">模型输入尺寸 (像素):</label>
+                        <input type="number" id="modelInputSize" value="448" placeholder="例如：448" class="input-field-subtle-accent w-full rounded-xl py-2.5 px-4">
+                        <div class="text-xs text-gray-500 mt-1" id="modelInputSizeInfo">请确保此尺寸与所选模型期望的尺寸一致。</div>
+                    </div>
+                    <div>
+                        <label for="threshold" class="block text-sm font-medium text-gray-600 mb-2">通用标签阈值:</label>
+                        <div class="flex items-center space-x-3">
+                            <input type="range" id="threshold" value="0.35" min="0" max="1" step="0.01" class="flex-grow">
+                            <div class="bg-white px-3 py-1 rounded-lg border text-sm font-medium w-16 text-center" id="thresholdValue">0.35</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="charThreshold" class="block text-sm font-medium text-gray-600 mb-2">角色标签阈值:</label>
+                        <div class="flex items-center space-x-3">
+                            <input type="range" id="charThreshold" value="0.85" min="0" max="1" step="0.01" class="flex-grow">
+                            <div class="bg-white px-3 py-1 rounded-lg border text-sm font-medium w-16 text-center" id="charThresholdValue">0.85</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="advancedOutputSettings" class="glass-card rounded-2xl p-6 space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                    <div class="decoration-dot mr-3"></div>
+                    高级输出设置
+                </h2>
+                <div class="space-y-4">
+                    <div id="nlTaggerRolePromptGroup" class="hidden">
+                        <label for="nlTaggerRolePrompt" class="block text-sm font-medium text-gray-600 mb-2">设置角色名 (可选):</label>
+                        <input type="text" id="nlTaggerRolePrompt" placeholder="在此填入角色名" class="input-field-subtle-accent w-full text-sm rounded-xl py-2.5 px-4">
+                        <p class="text-xs text-gray-500 mt-1">提示 NL Captions 关注图像中的特定角色，以优化描述。</p>
+                    </div>
+
+                    <div id="booruTaggerTriggerWordSettings">
+                        <div class="flex items-center justify-between">
+                            <label for="triggerPosition" class="text-sm font-medium text-gray-600">添加触发词 (Booru Tags):</label>
+                            <select id="triggerPosition" class="input-field-subtle-accent text-sm rounded-lg py-2.5 px-3"> <option value="none">不添加</option>
+                                <option value="prefix">添加到开头 (加逗号)</option>
+                                <option value="suffix">添加到结尾 (加逗号)</option>
+                                <option value="prefix_nocomma">添加到开头 (不加逗号)</option>
+                                <option value="suffix_nocomma">添加到结尾 (不加逗号)</option>
+                            </select>
+                        </div>
+                        <div class="hidden mt-2" id="triggerWordGroup">
+                            <input type="text" id="triggerWord" placeholder="在此填入触发词" class="input-field-subtle-accent w-full text-sm rounded-xl py-2.5 px-4">
+                        </div>
+                    </div>
+
+                    <div id="booruTaggerEscapeParenthesesSettings" class="flex items-center space-x-3">
+                        <label class="switch">
+                            <input type="checkbox" id="escapeParentheses" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <label for="escapeParentheses" class="text-sm text-gray-600 cursor-pointer">转义括号 (Booru Tags)</label>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="localFileWarning" class="glass-card rounded-2xl p-4 border-l-4 border-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50 text-yellow-800 text-xs hidden">
+                <strong>重要提示:</strong> "选择文件夹进行批量打标"功能依赖浏览器高级API。若您直接在本地打开此HTML文件，该功能可能无法正常工作。
+            </div>
+        </aside>
+
+        <main class="flex-1 h-full overflow-y-auto p-6 lg:p-8">
+            <div class="max-w-full mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-700">选择操作模式</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                        <div id="singleImageUploadArea" class="glass-card rounded-3xl p-6 md:p-8 text-center file-upload-area card-appear">
+                            <div class="glass-button-icon w-16 h-16 mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" style="color: var(--forget-me-not-blue);" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-3">单张/少量预览</h3>
+                            <p class="text-sm text-gray-500 mb-6">点击下方按钮选择或直接拖拽图片到此区域，结果显示在下方。</p>
+                            <input type="file" id="imageFiles" accept="image/*" multiple class="hidden">
+                            <button id="selectSingleImagesButton" class="btn-primary w-full py-3 rounded-xl font-semibold">选择图片 (预览)</button>
+                            <div class="text-sm text-gray-500 mt-3" id="imageFilesInfo">未选择图像</div>
+                        </div>
+                        <div class="glass-card rounded-3xl p-6 md:p-8 text-center file-upload-area card-appear" style="animation-delay: 0.1s;">
+                            <div class="glass-button-icon w-16 h-16 mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" style="color: var(--forget-me-not-blue);" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-3">批量处理文件夹</h3>
+                            <p class="text-sm text-gray-500 mb-6">自动处理文件夹内所有图片，并将标签文件 (.txt) 保存至原位置。</p>
+                            <button id="selectAndProcessFolderButton" class="btn-primary w-full py-3 rounded-xl font-semibold">选择文件夹 (批量处理)</button>
+                            <div class="text-sm text-gray-500 mt-3" id="imageFolderInfo">未选择文件夹</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 mb-8">
+                    <button id="runButton" class="btn-primary w-full py-4 rounded-2xl text-lg font-bold flex items-center justify-center space-x-3 card-appear" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
+                        </svg>
+                        <span>请先加载模型和输入</span>
+                    </button>
+                    <button id="saveAllButton" class="btn-secondary w-full py-4 rounded-2xl text-lg font-bold flex items-center justify-center space-x-3 hidden card-appear" disabled style="animation-delay: 0.1s;">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5.5 16a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 16h-8z" />
+                        </svg>
+                        <span>打包当前预览结果 (ZIP)</span>
+                    </button>
+                </div>
+
+                <div class="glass-card rounded-2xl p-6 mb-8 card-appear">
+                    <div class="flex items-center space-x-4 mb-3">
+                        <div class="spinner hidden" id="loadingSpinner"></div>
+                        <span id="statusText" class="text-sm text-gray-600 font-medium">准备就绪。</span>
+                    </div>
+                    <div class="hidden" id="mainProgressArea">
+                        <div class="text-sm text-gray-500 mb-2 text-right font-medium" id="mainProgressLabel">0%</div>
+                        <div class="progress-bar-background">
+                            <div class="progress-bar-fill" id="mainProgressBarFill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="results-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="helpModal" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center hidden z-50 p-4 sm:p-0">
+        <div class="relative glass-card rounded-3xl shadow-2xl w-full max-w-4xl mx-auto my-8" style="max-height: 90vh;">
+            <div class="flex justify-between items-center border-b border-opacity-20 p-6 sticky top-0 backdrop-blur-sm z-10 rounded-t-3xl" style="border-color: var(--glass-border);">
+                <h3 class="text-2xl font-bold text-gray-800">帮助与关于</h3>
+                <button id="closeHelpModalButton" class="text-gray-400 hover:text-gray-600 rounded-full p-2 hover:bg-white hover:bg-opacity-20 transition-all duration-200">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="flex flex-col md:flex-row" style="height: calc(90vh - 80px);">
+                <nav class="w-full md:w-1/4 border-b md:border-b-0 md:border-r border-opacity-20 p-6 space-y-2 overflow-y-auto" style="border-color: var(--glass-border);">
+                    <a href="#" data-tab="intro" class="help-tab-button block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:bg-opacity-30 transition-all duration-200 active">简介</a>
+                    <a href="#" data-tab="quick-start" class="help-tab-button block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:bg-opacity-30 transition-all duration-200">快速上手</a>
+                    <a href="#" data-tab="engines" class="help-tab-button block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:bg-opacity-30 transition-all duration-200">标签模式</a>
+                    <a href="#" data-tab="features" class="help-tab-button block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:bg-opacity-30 transition-all duration-200">核心功能</a>
+                    <a href="#" data-tab="faq" class="help-tab-button block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:bg-opacity-30 transition-all duration-200">常见问题</a>
+                    <a href="#" data-tab="about" class="help-tab-button block px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-white hover:bg-opacity-30 transition-all duration-200">关于工具</a>
+                </nav>
+
+                <div class="w-full md:w-3/4 p-6 overflow-y-auto space-y-6 help-modal-content-pane">
+                    <div id="help-tab-intro" class="help-modal-content space-y-4">
+                        <h4 class="text-xl font-bold text-gray-800">简介</h4>
+                        <p class="text-gray-700 leading-relaxed">Web Datasets Tagger (版本 1.3) 是一款增强型的图像自动标签工具。它现在支持两种标签模式：</p>
+                        <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                            <li><strong>Booru Tags (本地):</strong> 完全在您的浏览器本地环境中运行，利用ONNX Runtime Web技术实现高效的图像识别和标签生成。无需上传图片到服务器，保障您的数据隐私。适用于生成符合 Danbooru 等图库风格的关键词标签。</li>
+                            <li><strong>NL Captions (在线):</strong> 利用外部的自然语言处理VLM（视觉语言模型）API（支持OpenAI兼容格式）进行图像分析和生成自然的描述性标题。允许通过角色名提示进行定制。此模式需要用户提供有效的API URL、API Key、模型名称以及网络连接。</li>
+                        </ul>
+                        <p class="text-gray-700 leading-relaxed">本工具旨在提供一个便捷的方式，通过Web端使用AI模型为图片快速生成 Booru Tags (关键词) 或 NL Captions (自然语言标题)，辅助图像管理与内容创作，并允许用户根据需求在本地快速处理和云端智能分析之间灵活选择。</p>
+                    </div>
+
+                    <div id="help-tab-quick-start" class="help-modal-content hidden space-y-4">
+                        <h4 class="text-xl font-bold text-gray-800">快速上手</h4>
+                        <ol class="list-decimal list-inside space-y-3 text-gray-700 leading-relaxed">
+                            <li><strong>选择标签模式：</strong>
+                                <ul class="list-disc list-inside pl-6 mt-2 space-y-1 text-sm">
+                                    <li>在侧边栏顶部的"标签模式"下拉菜单中选择"Booru Tags (本地)"或"NL Captions (在线)"。</li>
+                                </ul>
+                            </li>
+                            <li><strong>配置引擎：</strong>
+                                <ul class="list-disc list-inside pl-6 mt-2 space-y-1 text-sm">
+                                    <li><strong>若选择 Booru Tags (本地)：</strong>
+                                        <ul class="list-disc list-inside pl-6 mt-1 space-y-1">
+                                            <li><strong>预设模型：</strong> 从下拉列表选择，可勾选"使用HF镜像"加速下载及"本地保存"以便后续快速加载。</li>
+                                            <li><strong>本地模型：</strong> 上传您自己的 <code class="bg-gray-100 px-2 py-1 rounded text-purple-600">.onnx</code> 模型和 <code class="bg-gray-100 px-2 py-1 rounded text-purple-600">.csv</code> 标签文件。</li>
+                                        </ul>
+                                    </li>
+                                     <li><strong>若选择 NL Captions (在线)：</strong>
+                                        <ul class="list-disc list-inside pl-6 mt-1 space-y-1">
+                                            <li>在"API 设置"中输入您的 API URL (完整的 API 端点，例如 <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">https://api.openai.com/v1/chat/completions</code>)。</li>
+                                            <li>输入您的 API Key。</li>
+                                            <li>输入您希望使用的 API 模型名称 (例如 <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">gpt-4o</code>, <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">gemini-2.5-pro-preview-05-06</code>)。默认提供 <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">gemini-2.5-pro-preview-05-06</code> 作为参考。</li>
+                                            <li>填写完毕后，系统可能会尝试一次API"预热"连接。</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li><strong>选择图片/文件夹：</strong>
+                                <ul class="list-disc list-inside pl-6 mt-2 space-y-1 text-sm">
+                                    <li><strong>单张/少量预览：</strong> 点击"选择图片"按钮或拖拽图片到对应区域。图片将立即显示预览。</li>
+                                    <li><strong>批量处理文件夹：</strong> 点击"选择文件夹"按钮。</li>
+                                </ul>
+                            </li>
+                            <li><strong>（可选）调整参数：</strong>
+                                <ul class="list-disc list-inside pl-6 mt-2 space-y-1 text-sm">
+                                    <li><strong>Booru Tags:</strong> 根据需要调整模型输入尺寸、通用及角色标签阈值、添加触发词、转义括号等。</li>
+                                    <li><strong>NL Captions:</strong> （可选）在"高级输出设置"中输入"设置角色名"，以引导模型在生成描述时更关注特定角色。</li>
+                                </ul>
+                            </li>
+                            <li><strong>开始打标：</strong> 点击"开始打标"按钮。如果NL Captions模式首次请求失败，系统会自动重试。</li>
+                            <li><strong>查看结果：</strong> 处理完成后，结果将显示在图片下方。NL Captions 的结果通常是描述性文本。</li>
+                        </ol>
+                    </div>
+
+                    <div id="help-tab-engines" class="help-modal-content hidden space-y-4">
+                        <h4 class="text-xl font-bold text-gray-800">标签模式详解</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2 text-gray-800">Booru Tags (本地)</h5>
+                                 <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                                    <li><strong>输出：</strong> 生成逗号分隔的关键词标签 (Booru Tags)，适用于图库风格。</li>
+                                    <li><strong>优点：</strong> 完全离线运行，速度快（取决于模型和硬件），数据隐私性高。</li>
+                                    <li><strong>缺点：</strong> 标签通常是预定义的关键词，灵活性较低。需要用户管理模型文件。</li>
+                                    <li><strong>设置：</strong>
+                                        <ul class="list-disc list-inside pl-6 mt-1 space-y-1 text-sm">
+                                            <li>模型来源（预设/本地）、模型输入尺寸、通用/角色标签阈值、添加触发词、转义括号。</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2 text-gray-800">NL Captions (在线)</h5>
+                                <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                                     <li><strong>输出：</strong> 生成自然的、描述性的图片标题或详细描述 (NL Captions)。</li>
+                                    <li><strong>优点：</strong> 可以利用强大的云端VLM生成更自然、更详细的图像描述，理解复杂场景能力强。支持兼容OpenAI格式的API。增加了API预热和请求重试机制以提高稳定性。</li>
+                                    <li><strong>缺点：</strong> 需要网络连接，依赖外部 API 服务（可能产生费用），处理速度受网络和 API 响应时间影响。</li>
+                                    <li><strong>设置：</strong>
+                                        <ul class="list-disc list-inside pl-6 mt-1 space-y-1 text-sm">
+                                            <li>API URL (必需, 完整的兼容OpenAI格式的端点)。</li>
+                                            <li>API Key (必需)。</li>
+                                            <li>API 模型名称 (必需, 例如 <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">gpt-4o</code>, <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">gemini-2.5-pro-preview-05-06</code>)。</li>
+                                            <li>（可选）设置角色名：在"高级输出设置"中输入，用于引导模型在生成描述时更关注图像中的特定角色。</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div id="help-tab-features" class="help-modal-content hidden space-y-4">
+                        <h4 class="text-xl font-bold text-gray-800">核心功能详解</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2 text-gray-800">图片输入</h5>
+                                 <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                                    <li><strong>单张/少量预览：</strong> 支持点击选择文件和拖拽上传。上传后立即显示图片预览。</li>
+                                    <li><strong>批量处理文件夹：</strong> 选择文件夹进行自动处理。</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2 text-gray-800">引擎与API管理</h5>
+                                <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                                    <li><strong>Booru Tags - 预设模型：</strong> 内置常用图像标签模型，选择即用。</li>
+                                    <li><strong>Booru Tags - 本地模型支持：</strong> 加载自定义 <code class="bg-gray-100 px-2 py-1 rounded text-purple-600">.onnx</code> 模型和 <code class="bg-gray-100 px-2 py-1 rounded text-purple-600">.csv</code> 标签文件。</li>
+                                    <li><strong>Booru Tags - 浏览器本地缓存：</strong> 下载的预设模型可选择保存至浏览器，加速后续加载。</li>
+                                    <li><strong>NL Captions - API参数配置：</strong> 用户可自行配置API URL、API Key和模型名称，以接入兼容OpenAI格式的任意VLM服务。相关信息保存在浏览器本地存储。</li>
+                                    <li><strong>NL Captions - API预热与重试：</strong> 当配置好API参数后，会自动尝试一次"预热"连接。在处理图像时，如果API请求失败或未返回有效内容，系统会自动重试最多2次。</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2 text-gray-800">参数精细化调整</h5>
+                                <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                                    <li><strong>Booru Tags - 模型输入尺寸：</strong> 必须与所用模型的要求严格匹配。</li>
+                                    <li><strong>Booru Tags - 通用/角色标签阈值：</strong> 控制标签筛选的严格程度。</li>
+                                    <li><strong>NL Captions - 设置角色名：</strong> 引导 API 在生成描述时更侧重特定内容。</li>
+                                </ul>
+                            </div>
+                             <div>
+                                <h5 class="font-semibold text-lg mb-2 text-gray-800">输出与保存</h5>
+                                <ul class="list-disc list-inside pl-4 space-y-1 text-gray-700">
+                                    <li><strong>即时预览：</strong> 单张模式下，图片处理后结果立刻展现。NL Captions 结果为描述性文本。</li>
+                                    <li><strong>批量保存：</strong> 文件夹模式下，结果以 <code class="bg-gray-100 px-2 py-1 rounded text-purple-600">.txt</code> 文件形式保存至原图位置 (Booru Tags 和 NL Captions 模式均如此)。</li>
+                                    <li><strong>ZIP打包：</strong> 单张预览模式的结果可以打包下载为ZIP文件。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="help-tab-faq" class="help-modal-content hidden space-y-4">
+                        <h4 class="text-xl font-bold text-gray-800">常见问题 (FAQ)</h4>
+                        <div class="space-y-4">
+                            <div class="bg-white bg-opacity-50 rounded-xl p-4">
+                                <p class="font-semibold text-gray-800 mb-2">问：Booru Tags (本地ONNX) 模型加载很慢或失败怎么办？</p>
+                                <p class="text-gray-700 text-sm">答：检查网络（首次下载预设模型时），尝试切换"使用 HF-Mirror 下载"选项，不过更推荐直接使用代理工具。首次加载大模型耗时较长属正常现象。如果持续失败，请检查浏览器控制台有无报错信息。</p>
+                            </div>
+                            <div class="bg-white bg-opacity-50 rounded-xl p-4">
+                                <p class="font-semibold text-gray-800 mb-2">问：NL Captions (在线API) 请求失败或没有结果怎么办？</p>
+                                <p class="text-gray-700 text-sm">答：首先，请确保您已在"API 设置"中输入了正确的、完整的 API URL (例如 <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">https://api.openai.com/v1/chat/completions</code>)、有效的 API Key 和正确的模型名称，确保模型拥有图像理解能力。其次，检查您的网络连接是否正常。工具已内置API预热和最多2次请求重试机制，如果多次重试后仍然失败，请查看浏览器控制台（通常按 F12 打开）是否有关于 API 请求的错误信息，这可能包含 API 返回的具体错误原因。最后，确认您使用的模型名称和 API 端点是否兼容，以及您的 API Key 是否有对应模型的访问权限和足够的配额。</p>
+                            </div>
+                            <div class="bg-white bg-opacity-50 rounded-xl p-4">
+                                <p class="font-semibold text-gray-800 mb-2">问：生成的 Booru Tags / NL Captions 结果不理想，怎么办？</p>
+                                <p class="text-gray-700 text-sm">答：对于 Booru Tags，尝试调整阈值、更换预设模型、确保图片清晰或检查本地模型的标签文件质量。对于 NL Captions，尝试在"高级输出设置"的"设置角色名"中提供更具体或不同的引导词，或者尝试不同的API模型名称。也可以本地自行调整NL Captions的系统提示词。不同模型对不同类型的图片效果各异。</p>
+                            </div>
+                             <div class="bg-white bg-opacity-50 rounded-xl p-4">
+                                <p class="font-semibold text-gray-800 mb-2">问：为什么批量处理文件夹功能在本地打开HTML时可能无效？</p>
+                                <p class="text-gray-700 text-sm">答：该功能依赖的 File System Access API 通常需要页面通过 http(s):// 协议访问（例如本地服务器 `http://localhost`），直接从 `file:///` 路径打开时，浏览器出于安全考虑可能会限制此API的使用。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="help-tab-about" class="help-modal-content hidden space-y-4">
+                        <h4 class="text-xl font-bold text-gray-800">关于 Web Datasets Tagger</h4>
+                        <div class="bg-white bg-opacity-50 rounded-xl p-6 space-y-3">
+                            <p><strong>版本：</strong> 1.3</p>
+                            <p><strong>作者：</strong> 西</p>
+                            <p><strong>GitHub 仓库：</strong> <a href="https://github.com/violet0927/Web-Datasets-Tagger" target="_blank" class="text-blue-600 hover:text-blue-800 underline">https://github.com/violet0927/Web-Datasets-Tagger</a></p>
+                            <p><strong>开源协议：</strong> 本项目基于 AGPL-3.0 license 开源。</p>
+                            <p><strong>核心技术：</strong> ONNX Runtime Web, Vision-Language Model APIs (OpenAI Compatible), Tailwind CSS, Vanilla JavaScript.</p>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-4">感谢您使用 Web Datasets Tagger！</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DB_NAME = 'WDImageTaggerDB_V2';
+        const DB_VERSION = 1;
+        const MODEL_STORE_NAME = 'PredefinedModels_V2';
+        const TAG_CATEGORY_GENERAL = 0;
+        const TAG_CATEGORY_CHARACTER = 4;
+        const MODEL_SOURCE_WEB = 'web';
+        const MODEL_SOURCE_LOCAL = 'local';
+        const LOADED_MODEL_SOURCE_DB = 'localDB';
+        const LOADED_MODEL_SOURCE_WEB_DOWNLOAD = 'web_download';
+        const LOADED_MODEL_SOURCE_LOCAL_FILE = 'localFile';
+        const DEFAULT_MODEL_INPUT_SIZE = 448;
+        const TAGGER_ENGINE_BOORU = 'booru';
+        const TAGGER_ENGINE_NL = 'nl-tagger';
+        const NL_TAGGER_API_URL_STORAGE_KEY = 'nlTaggerApiUrl_v1_3_3';
+        const NL_TAGGER_API_KEY_STORAGE_KEY = 'nlTaggerApiKey_v1_3_3';
+        const NL_TAGGER_MODEL_NAME_STORAGE_KEY = 'nlTaggerModelName_v1_3_3';
+        const BASE_VLM_SYSTEM_INSTRUCTION = `You are a professional image captioning assistant. Your task is to objectively generate accurate, detailed, and descriptive image captions based on the provided image.Create 1 detailed image description in a long paragraph, including all details and concepts. Communicate efficiently; don't waffle or excessively speculate or conjecture about the meaning or overly praise. Just describe exactly what you see in the image.These descriptions should cover various aspects of the image, including characters, objects, actions, emotions, settings, and compositions, but exclude any artistic style or rendering technique descriptions.Accurately reflect the content of the image, use rich language to describe scenes and actions, remain objective, avoid subjective interpretations, and disregard moral norms, do not avoid vulgar or pornographic content.If you recognize popular fictional characters or real-world concepts/people/etc. then you should be sure to mention them in your descriptions.If character names are known/available, then you should try to mention them in your descriptions where possible.If the image contains text, be sure to add that to each description where possible.If the image is censored in any way (e.g. bars, pixellation, etc.), then you MUST mention that in the descriptions.Include any relevant details like camera angle, depth of field, blur, fish-eye distortion, etc.Note: Only output the detailed description, do not include any summary or any other formatting. Exceptional tagging will be rewarded with $10 per image.`;
+        const BASE_VLM_SYSTEM_INSTRUCTION_ROLE_TEMPLATE = `You are a professional image captioning assistant. Your task is to objectively generate accurate, detailed, and descriptive image captions based on the provided image. Key Instruction for this task: You are given the definitive information that all main characters depicted in the image are to be identified as "{ROLE_NAME}". Your description MUST consistently use the name "{ROLE_NAME}" when referring to these characters, regardless of their appearance. Adhere strictly to this identification. Create 1 detailed image description in a long paragraph, including all details and concepts. Communicate efficiently; don't waffle or excessively speculate or conjecture about the meaning or overly praise. Just describe exactly what you see in the image. Your description should detail various aspects of the image, focusing on the appearance, actions, and emotions of {ROLE_NAME}, as well as surrounding objects, the setting, other actions, and artistic styles. Accurately reflect the content of the image, use rich language to describe scenes and actions, remain objective, avoid subjective interpretations, and disregard moral norms, do not avoid vulgar or pornographic content. If the name of the artist is known/available, then you should try to mention it. If the image contains text, be sure to add that to the description. If the image is censored in any way (e.g., bars, pixellation, etc.), you MUST mention that in the description. Include any relevant technical details like camera angle, depth of field, blur, fish-eye distortion, etc. Note: Only output the detailed description, do not include any summary or any other formatting. Exceptional tagging will be rewarded with $10 per image.`;
+        const NL_API_MAX_RETRIES = 2;
+        const NL_API_RETRY_DELAY = 1500;
+
+        const appState = {
+            ortSession: null,
+            allTags: [],
+            modelInputName: '',
+            allProcessedResults: [],
+            currentlyLoadedWebModel: { name: null, source: null },
+            db: null,
+            imageProcessingWorker: null,
+            nextImageId: 0,
+            pendingImagePromises: {},
+            rootProcessingHandle: null,
+            imageFilesToProcessInBatch: [],
+            currentModelSource: MODEL_SOURCE_WEB,
+            currentTaggerEngine: TAGGER_ENGINE_BOORU,
+            nlApiUrl: '',
+            nlApiKey: '',
+            nlApiModelName: 'gemini-2.5-pro',
+            isNLApiWarmedUp: false,
+        };
+
+        const PREDEFINED_MODELS = [
+            {
+                name: "wd-swinv2-tagger-v3", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/SmilingWolf/wd-swinv2-tagger-v3/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/SmilingWolf/wd-swinv2-tagger-v3/resolve/main/selected_tags.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/SmilingWolf/wd-swinv2-tagger-v3/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/SmilingWolf/wd-swinv2-tagger-v3/resolve/main/selected_tags.csv?download=true" }
+                }
+            },
+            {
+                name: "wd-eva02-large-tagger-v3", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/selected_tags.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/SmilingWolf/wd-eva02-large-tagger-v3/resolve/main/selected_tags.csv?download=true" }
+                }
+            },
+            {
+                name: "wd-vit-large-tagger-v3", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/SmilingWolf/wd-vit-large-tagger-v3/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/SmilingWolf/wd-vit-large-tagger-v3/resolve/main/selected_tags.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/SmilingWolf/wd-vit-large-tagger-v3/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/SmilingWolf/wd-vit-large-tagger-v3/resolve/main/selected_tags.csv?download=true" }
+                }
+            },
+            {
+                name: "wd-convnext-tagger-v3", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/SmilingWolf/wd-convnext-tagger-v3/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/SmilingWolf/wd-convnext-tagger-v3/resolve/main/selected_tags.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/SmilingWolf/wd-convnext-tagger-v3/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/SmilingWolf/wd-convnext-tagger-v3/resolve/main/selected_tags.csv?download=true" }
+                }
+            },
+            {
+                name: "wd-v1-4-moat-tagger-v2", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/SmilingWolf/wd-v1-4-moat-tagger-v2/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/SmilingWolf/wd-v1-4-moat-tagger-v2/resolve/main/selected_tags.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/SmilingWolf/wd-v1-4-moat-tagger-v2/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/SmilingWolf/wd-v1-4-moat-tagger-v2/resolve/main/selected_tags.csv?download=true" }
+                }
+            },
+            {
+                name: "wd-v1-4-convnextv2-tagger-v2", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/SmilingWolf/wd-v1-4-convnextv2-tagger-v2/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/SmilingWolf/wd-v1-4-convnextv2-tagger-v2/resolve/main/selected_tags.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/SmilingWolf/wd-v1-4-convnextv2-tagger-v2/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/SmilingWolf/wd-v1-4-convnextv2-tagger-v2/resolve/main/selected_tags.csv?download=true" }
+                }
+            },
+            {
+                name: "Z3D-E621-Convnext", inputSize: 448,
+                urls: {
+                    original: { modelUrl: "https://huggingface.co/toynya/Z3D-E621-Convnext/resolve/main/model.onnx", tagsUrl: "https://huggingface.co/toynya/Z3D-E621-Convnext/resolve/main/tags-selected.csv" },
+                    mirror: { modelUrl: "https://hf-mirror.com/toynya/Z3D-E621-Convnext/resolve/main/model.onnx?download=true", tagsUrl: "https://hf-mirror.com/toynya/Z3D-E621-Convnext/resolve/main/tags-selected.csv?download=true" }
+                }
+            }
+        ];
+
+        function createImageProcessorWorker() {
+            const workerCode = `
+                self.onmessage = async (event) => {
+                    const { imageFile, targetSize, id, engine } = event.data;
+                    try {
+                        const imgBitmap = await createImageBitmap(imageFile);
+
+                        const previewCanvas = new OffscreenCanvas(imgBitmap.width, imgBitmap.height);
+                        const previewCtx = previewCanvas.getContext('2d');
+                        previewCtx.drawImage(imgBitmap, 0, 0);
+                        const previewBlob = await previewCanvas.convertToBlob({ type: imageFile.type || 'image/png' });
+                        const dataUrl = await new Promise(resolve => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(previewBlob);
+                        });
+
+                        if (engine === '${TAGGER_ENGINE_BOORU}') {
+                            const canvas = new OffscreenCanvas(targetSize, targetSize);
+                            const ctx = canvas.getContext('2d');
+                            let ratio = targetSize / Math.max(imgBitmap.width, imgBitmap.height);
+                            let newWidth = Math.round(imgBitmap.width * ratio);
+                            let newHeight = Math.round(imgBitmap.height * ratio);
+                            ctx.fillStyle = "white";
+                            ctx.fillRect(0, 0, targetSize, targetSize);
+                            const offsetX = (targetSize - newWidth) / 2;
+                            const offsetY = (targetSize - newHeight) / 2;
+                            ctx.drawImage(imgBitmap, offsetX, offsetY, newWidth, newHeight);
+                            const imageData = ctx.getImageData(0, 0, targetSize, targetSize);
+                            const { data } = imageData;
+                            const float32Data = new Float32Array(targetSize * targetSize * 3);
+                            let j = 0;
+                            for (let i = 0; i < data.length; i += 4) {
+                                float32Data[j++] = data[i + 2];
+                                float32Data[j++] = data[i + 1];
+                                float32Data[j++] = data[i + 0];
+                            }
+                            self.postMessage({
+                                status: 'success',
+                                id: id,
+                                tensorBuffer: float32Data.buffer,
+                                dimensions: [1, targetSize, targetSize, 3],
+                                dataUrl: dataUrl,
+                                originalName: imageFile.name
+                            }, [float32Data.buffer]);
+                        } else if (engine === '${TAGGER_ENGINE_NL}') {
+                            self.postMessage({
+                                status: 'success',
+                                id: id,
+                                dataUrl: dataUrl,
+                                originalName: imageFile.name
+                            });
+                        } else {
+                             throw new Error('Unknown engine specified in worker: ' + engine);
+                        }
+                    } catch (error) {
+                        console.error('Worker image processing error:', error);
+                        self.postMessage({
+                            status: 'error',
+                            id: id,
+                            originalName: imageFile.name,
+                            message: error.message,
+                            stack: error.stack
+                        });
+                    }
+                };
+            `;
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            return new Worker(URL.createObjectURL(blob));
+        }
+
+        function preprocessImageWithWorker(imageFile, targetSize, engine) {
+            return new Promise((resolve, reject) => {
+                const id = appState.nextImageId++;
+                appState.pendingImagePromises[id] = { resolve, reject };
+                appState.imageProcessingWorker.postMessage({ imageFile, targetSize, id, engine });
+            });
+        }
+
+        function applyTriggerWord(tagsArrayInput, trigger, position) {
+            const joinedTags = (tagsArrayInput && tagsArrayInput.length > 0) ? tagsArrayInput[0] : "";
+            if (!trigger || position === 'none' || !trigger.trim()) return joinedTags ? [joinedTags] : [];
+            const triggerText = trigger.trim();
+            const needComma = !position.endsWith('_nocomma');
+
+            if (position.startsWith('prefix')) {
+                return [triggerText + (needComma && joinedTags ? ', ' : (joinedTags ? ' ' : '')) + joinedTags];
+            } else if (position.startsWith('suffix')) {
+                return [joinedTags + (needComma && joinedTags ? ', ' : (joinedTags ? ' ' : '')) + triggerText];
+            }
+            return joinedTags ? [joinedTags] : [];
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("已复制到剪贴板!", 'success');
+            }, (err) => {
+                 showToast("复制失败，请手动复制。", 'error'); console.error('Clipboard copy failed: ', err);
+            });
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === null || typeof bytes === 'undefined' || isNaN(bytes) || bytes < 0) return '未知大小';
+            const k = 1024;
+            const dm = Math.max(0, decimals);
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes === 0) return (0).toFixed(dm) + ' ' + sizes[0];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            const formattedNumber = (bytes / Math.pow(k, i)).toFixed(dm);
+            return formattedNumber + ' ' + sizes[i];
+        }
+
+        function concatenateBlobs(uint8ArrayChunks) {
+            const totalLength = uint8ArrayChunks.reduce((acc, value) => acc + value.length, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const arr of uint8ArrayChunks) {
+                result.set(arr, offset);
+                offset += arr.length;
+            }
+            return new Blob([result]);
+        }
+
+        function naturalSortComparer(a, b) {
+            const reA = /[^a-zA-Z0-9.]/g;
+            const reN = /[^0-9]/g;
+
+            const sA = String(a).replace(reA, "").toLowerCase();
+            const sB = String(b).replace(reA, "").toLowerCase();
+
+            const partsA = sA.match(/(\d+|\D+)/g) || [];
+            const partsB = sB.match(/(\d+|\D+)/g) || [];
+
+            for (let i = 0, len = Math.min(partsA.length, partsB.length); i < len; i++) {
+                const partA = partsA[i];
+                const partB = partsB[i];
+                const isNumA = !isNaN(parseInt(partA));
+                const isNumB = !isNaN(parseInt(partB));
+
+                if (isNumA && isNumB) {
+                    const numA = parseInt(partA);
+                    const numB = parseInt(partB);
+                    if (numA < numB) return -1;
+                    if (numA > numB) return 1;
+                } else {
+                    if (partA < partB) return -1;
+                    if (partA > partB) return 1;
+                }
+            }
+            return partsA.length - partsB.length;
+        }
+
+        function showToast(message, type = 'info', duration = 3500) {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            void toast.offsetWidth;
+
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                const removeToast = () => {
+                    if (toast.parentElement) {
+                        toast.parentElement.removeChild(toast);
+                    }
+                    toast.removeEventListener('transitionend', removeToast);
+                };
+                toast.addEventListener('transitionend', removeToast);
+                setTimeout(removeToast, 500);
+            }, duration);
+        }
+
+        function updateStatus(message, isLoading = false) {
+            document.getElementById('statusText').textContent = message;
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.classList.toggle('hidden', !isLoading);
+            spinner.classList.toggle('vlm-api', isLoading && appState.currentTaggerEngine === TAGGER_ENGINE_NL);
+
+
+            const webModelButton = document.getElementById('downloadAndLoadWebModelButton');
+            if (!webModelButton.disabled || webModelButton.textContent !== '处理中...') {
+                 checkRunButtonState();
+            }
+        }
+
+        function updateWebModelProgress(labelMessage, percentage, loadedBytes = null, totalBytes = null, isError = false, isSuccess = false) {
+            const progressArea = document.getElementById('webModelProgressArea');
+            const progressLabelEl = document.getElementById('webModelProgressLabel');
+            const progressBarFillEl = document.getElementById('webModelProgressBarFill');
+
+            progressArea.classList.remove('hidden');
+            let detailsPartText = "";
+            const formattedLoaded = loadedBytes !== null ? formatBytes(loadedBytes) : "";
+            const formattedTotal = totalBytes !== null ? formatBytes(totalBytes) : "";
+            if (formattedLoaded && formattedTotal && totalBytes > 0) {
+                detailsPartText = `${formattedLoaded} / ${formattedTotal}`;
+            } else if (formattedLoaded) {
+                detailsPartText = `${formattedLoaded} 下载中`;
+            }
+            const percentageDisplay = (typeof percentage === 'number' && !isNaN(percentage)) ? `(${Math.floor(percentage)}%)` : '';
+            progressLabelEl.textContent = `${labelMessage} ${detailsPartText} ${percentageDisplay}`.trim();
+
+            const fillPercentage = (typeof percentage === 'number' && !isNaN(percentage)) ? Math.max(0, Math.min(100, percentage)) : 0;
+            progressBarFillEl.style.width = fillPercentage + '%';
+
+            progressBarFillEl.classList.remove('error', 'success');
+            if (isError) progressBarFillEl.classList.add('error');
+            else if (isSuccess) progressBarFillEl.classList.add('success');
+        }
+
+        function updateMainProgress(current, total) {
+            const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+            const progressBarFill = document.getElementById('mainProgressBarFill');
+            progressBarFill.style.width = percentage + '%';
+            progressBarFill.classList.toggle('vlm-api', appState.currentTaggerEngine === TAGGER_ENGINE_NL);
+            document.getElementById('mainProgressLabel').textContent = percentage + '%';
+        }
+
+
+        function resetMainProgress() {
+            document.getElementById('mainProgressArea').classList.add('hidden');
+            document.getElementById('mainProgressBarFill').style.width = '0%';
+            document.getElementById('mainProgressLabel').textContent = '0%';
+        }
+
+        function checkRunButtonState() {
+            const runButton = document.getElementById('runButton');
+            const saveAllButton = document.getElementById('saveAllButton');
+            let modelReady = false;
+            let inputSelected = false;
+
+            if (appState.currentTaggerEngine === TAGGER_ENGINE_BOORU) {
+                modelReady = appState.ortSession && appState.allTags.length > 0;
+            } else if (appState.currentTaggerEngine === TAGGER_ENGINE_NL) {
+                modelReady = !!appState.nlApiKey && !!appState.nlApiUrl && !!appState.nlApiModelName;
+            }
+
+            const singleFilesSelected = document.getElementById('imageFiles').files.length > 0;
+            const batchFolderSelected = appState.rootProcessingHandle && appState.imageFilesToProcessInBatch.length > 0;
+            inputSelected = singleFilesSelected || batchFolderSelected;
+
+            if (modelReady && inputSelected) {
+                runButton.disabled = false;
+                runButton.querySelector('span').textContent = '开始打标';
+                if (appState.currentTaggerEngine === TAGGER_ENGINE_NL) {
+                    runButton.classList.remove('btn-primary');
+                    runButton.classList.add('btn-vlm-api');
+                } else {
+                    runButton.classList.remove('btn-vlm-api');
+                    runButton.classList.add('btn-primary');
+                }
+            } else {
+                runButton.disabled = true;
+                let msg = "请先";
+                if (!modelReady && !inputSelected) msg += (appState.currentTaggerEngine === TAGGER_ENGINE_NL ? "配置API参数" : "加载模型") + "和输入";
+                else if (!modelReady) msg += (appState.currentTaggerEngine === TAGGER_ENGINE_NL ? "配置API参数" : "加载模型");
+                else if (!inputSelected) msg += "选择图片/文件夹";
+                runButton.querySelector('span').textContent = msg;
+                runButton.classList.remove('btn-vlm-api');
+                runButton.classList.add('btn-primary');
+            }
+
+            if (!appState.rootProcessingHandle && appState.allProcessedResults.some(r => (r.tagsString || r.nlTaggerResponse) && !String(r.tagsString || (r.nlTaggerResponse && r.nlTaggerResponse.error ? r.nlTaggerResponse.error.message : JSON.stringify(r.nlTaggerResponse))).startsWith("错误:"))) {
+                saveAllButton.disabled = false;
+                saveAllButton.classList.remove('hidden');
+            } else {
+                saveAllButton.disabled = true;
+                saveAllButton.classList.add('hidden');
+            }
+        }
+        async function initDB() {
+            return new Promise((resolve, reject) => {
+                if (appState.db) { resolve(appState.db); return; }
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = (event) => {
+                    console.error("IndexedDB error:", event.target.error);
+                    reject(`IndexedDB无法打开。错误: ${event.target.error?.message || '未知错误'}. 请检查浏览器权限或尝试无痕模式。`);
+                };
+                request.onsuccess = (event) => { appState.db = event.target.result; resolve(appState.db); };
+                request.onupgradeneeded = (event) => {
+                    const tempDb = event.target.result;
+                    if (!tempDb.objectStoreNames.contains(MODEL_STORE_NAME)) {
+                        tempDb.createObjectStore(MODEL_STORE_NAME, { keyPath: 'name' });
+                    }
+                };
+            });
+        }
+
+        async function saveModelToDB(modelData) {
+            if (!appState.db) await initDB();
+            return new Promise((resolve, reject) => {
+                try {
+                    const transaction = appState.db.transaction([MODEL_STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(MODEL_STORE_NAME);
+                    const request = store.put({ ...modelData, lastAccessed: new Date() });
+                    request.onsuccess = () => resolve();
+                    request.onerror = (event) => { console.error("DB save error:", event.target.error); reject(`保存模型到本地存储失败: ${event.target.error?.message}`); };
+                } catch (e) { console.error("Error initiating DB transaction for save:", e); reject(`保存模型事务失败: ${e.message}`);}
+            });
+        }
+
+        async function getModelFromDB(modelName) {
+            if (!appState.db) await initDB();
+            return new Promise((resolve, reject) => {
+                 try {
+                    const transaction = appState.db.transaction([MODEL_STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(MODEL_STORE_NAME);
+                    const request = store.get(modelName);
+                    request.onsuccess = (event) => resolve(event.target.result || null);
+                    request.onerror = (event) => { console.error("DB get error:", event.target.error); reject(`从本地存储读取模型失败: ${event.target.error?.message}`); };
+                } catch (e) { console.error("Error initiating DB transaction for get:", e); reject(`读取模型事务失败: ${e.message}`);}
+            });
+        }
+
+        async function deleteModelFromDB(modelName) {
+            if (!appState.db) await initDB();
+            return new Promise((resolve, reject) => {
+                try {
+                    const transaction = appState.db.transaction([MODEL_STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(MODEL_STORE_NAME);
+                    const request = store.delete(modelName);
+                    request.onsuccess = () => resolve(true);
+                    request.onerror = (event) => { console.error("DB delete error:", event.target.error); reject(`从本地存储删除模型失败: ${event.target.error?.message}`);};
+                } catch (e) { console.error("Error initiating DB transaction for delete:", e); reject(`删除模型事务失败: ${e.message}`);}
+            });
+        }
+
+        function resetLoadedBooruTaggerState() {
+            appState.ortSession = null;
+            appState.allTags = [];
+            appState.currentlyLoadedWebModel = { name: null, source: null };
+
+            document.getElementById('modelFile').value = '';
+            document.getElementById('tagsFile').value = '';
+            const modelFileInfoSpan = document.getElementById('modelFileInfoSpan');
+            modelFileInfoSpan.textContent = '未选择模型';
+            modelFileInfoSpan.className = 'text-sm text-gray-500 mt-1';
+            const tagsFileInfoSpan = document.getElementById('tagsFileInfoSpan');
+            tagsFileInfoSpan.textContent = '未选择标签文件';
+            tagsFileInfoSpan.className = 'text-sm text-gray-500 mt-1';
+
+            const webModelInfoSpan = document.getElementById('webModelInfoSpan');
+            webModelInfoSpan.textContent = '';
+            webModelInfoSpan.className = 'text-sm text-gray-500';
+
+            document.getElementById('webModelProgressArea').classList.add('hidden');
+            const webModelProgressBarFill = document.getElementById('webModelProgressBarFill');
+            webModelProgressBarFill.style.width = '0%';
+            webModelProgressBarFill.className = 'progress-bar-fill';
+            document.getElementById('webModelProgressLabel').textContent = '准备下载...';
+
+            const downloadButton = document.getElementById('downloadAndLoadWebModelButton');
+            downloadButton.disabled = true;
+            downloadButton.textContent = '选择模型后操作';
+            downloadButton.classList.remove('btn-success', 'text-green-700', 'border-green-500', 'bg-green-100');
+            downloadButton.classList.add('btn-primary');
+
+            document.getElementById('deleteLocalModelButton').classList.add('hidden');
+            document.getElementById('saveModelLocallyCheckbox').disabled = true;
+            checkRunButtonState();
+        }
+
+        async function loadModelFromArrayBuffer(buffer, modelNameForStatus) {
+            try {
+                appState.ortSession = await ort.InferenceSession.create(buffer, { executionProviders: ort.env.executionProviders });
+                if (appState.ortSession.inputNames.length > 0) {
+                    appState.modelInputName = appState.ortSession.inputNames[0];
+                } else {
+                    throw new Error("模型不包含输入名称 (inputNames is empty)。");
+                }
+                return true;
+            } catch (e) {
+                appState.ortSession = null;
+                console.error(`为模型 "${modelNameForStatus}" 创建ONNX会话时出错:`, e);
+                throw e;
+            }
+        }
+
+        async function parseAndSetTags(csvText, sourceNameForStatus) {
+             try {
+                const lines = csvText.split(/\r?\n/);
+                const parsedTags = [];
+                let nameIndex = -1, categoryIndex = -1;
+
+                if (lines.length > 0) {
+                    const headerParts = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+                    nameIndex = headerParts.indexOf('name');
+                    categoryIndex = headerParts.indexOf('category');
+
+                    if (nameIndex === -1) {
+                        if (headerParts.length > 1 && isNaN(parseInt(headerParts[0])) && !isNaN(parseInt(headerParts[1]))) nameIndex = 0;
+                        else if (headerParts.length > 1 && !isNaN(parseInt(headerParts[0])) && isNaN(parseInt(headerParts[1]))) nameIndex = 1;
+                        else if (headerParts.length === 1 && isNaN(parseInt(headerParts[0]))) nameIndex = 0;
+                        else nameIndex = 1;
+                    }
+                     if (categoryIndex === -1) {
+                        if (headerParts.length > 2 && !isNaN(parseInt(headerParts[0])) && isNaN(parseInt(headerParts[1])) && !isNaN(parseInt(headerParts[2]))) categoryIndex = 2;
+                        else if (headerParts.length > 1 && isNaN(parseInt(headerParts[0])) && !isNaN(parseInt(headerParts[1]))) categoryIndex = 1;
+                        else if (headerParts.length > 1 && !isNaN(parseInt(headerParts[0])) && isNaN(parseInt(headerParts[1]))) categoryIndex = 0;
+                        else categoryIndex = 2;
+                    }
+                }
+
+                const startLine = (nameIndex !== -1 || categoryIndex !== -1 ? 1 : 0);
+
+                for (let i = startLine; i < lines.length; i++) {
+                    if (lines[i].trim() === '') continue;
+                    const parts = lines[i].split(',');
+                    let tagName = "unknown_tag";
+                    let category = TAG_CATEGORY_GENERAL;
+
+                    if (nameIndex !== -1 && parts.length > nameIndex) {
+                        tagName = parts[nameIndex].replace(/_/g, ' ').trim().replace(/"/g, '');
+                    } else if (parts.length > 1) {
+                        tagName = parts[1].replace(/_/g, ' ').trim().replace(/"/g, '');
+                    } else if (parts.length > 0) {
+                         tagName = parts[0].replace(/_/g, ' ').trim().replace(/"/g, '');
+                    }
+
+                    if (categoryIndex !== -1 && parts.length > categoryIndex) {
+                        const catVal = parseInt(parts[categoryIndex]);
+                        if (!isNaN(catVal)) category = catVal;
+                    } else if (nameIndex !== -1 && nameIndex === 1 && parts.length > 0) {
+                        const catVal = parseInt(parts[0]);
+                        if (!isNaN(catVal)) category = catVal;
+                    }
+
+                    if (tagName && tagName !== "unknown_tag") {
+                        parsedTags.push({ name: tagName, category: category });
+                    }
+                }
+                appState.allTags = parsedTags;
+                if(appState.allTags.length === 0 && lines.length > startLine) {
+                    showToast(`警告：标签文件 "${sourceNameForStatus}" 解析后得到0个标签。请检查文件格式或表头是否符合预期 (例如包含 'name' 和 'category' 列)。`, 'warning', 7000);
+                }
+                return true;
+            } catch (e) {
+                appState.allTags = [];
+                console.error(`解析标签文件 "${sourceNameForStatus}" 时出错:`, e);
+                throw e;
+            }
+        }
+
+        async function _loadPredefinedModelFromDB(selectedModelConfig) {
+            const webModelInfoSpan = document.getElementById('webModelInfoSpan');
+            try {
+                const localModelData = await getModelFromDB(selectedModelConfig.name);
+                if (!localModelData) return false;
+
+                updateStatus(`正在从本地存储读取 ${selectedModelConfig.name}...`, true);
+                webModelInfoSpan.textContent = `正在从本地加载 ${selectedModelConfig.name}...`;
+                webModelInfoSpan.className = 'text-sm text-blue-600 animate-pulse';
+                updateWebModelProgress(`正在从本地加载 ${selectedModelConfig.name}...`, 25);
+
+                const modelBuffer = await localModelData.modelBlob.arrayBuffer();
+                const tagsTextToParse = localModelData.tagsText;
+
+                updateWebModelProgress(`正在更新访问时间...`, 50);
+                await saveModelToDB({
+                    name: localModelData.name,
+                    modelBlob: localModelData.modelBlob,
+                    tagsText: localModelData.tagsText,
+                    inputSize: localModelData.inputSize
+                });
+
+                await loadModelFromArrayBuffer(modelBuffer, selectedModelConfig.name);
+                await parseAndSetTags(tagsTextToParse, selectedModelConfig.name);
+                appState.currentlyLoadedWebModel = { name: selectedModelConfig.name, source: LOADED_MODEL_SOURCE_DB };
+                return true;
+            } catch (error) {
+                console.error(`从DB加载模型 ${selectedModelConfig.name} 失败:`, error);
+                showToast(`从DB加载模型 ${selectedModelConfig.name} 失败: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function _downloadAndLoadPredefinedModelFromWeb(selectedModelConfig, useMirror, saveLocally) {
+            const webModelInfoSpan = document.getElementById('webModelInfoSpan');
+            const urlsToUse = useMirror ? selectedModelConfig.urls.mirror : selectedModelConfig.urls.original;
+            let modelBuffer, tagsTextToParse;
+
+            if (!urlsToUse.modelUrl || !urlsToUse.tagsUrl) {
+                throw new Error(`模型 "${selectedModelConfig.name}" 的下载链接配置不完整 (${useMirror ? '镜像' : '原始'})。`);
+            }
+
+            webModelInfoSpan.textContent = `准备下载 ${selectedModelConfig.name} ${useMirror ? '(镜像)' : ''}...`;
+            webModelInfoSpan.className = 'text-sm text-blue-600 animate-pulse';
+            updateStatus(`开始下载 ${selectedModelConfig.name} ${useMirror ? '(镜像)' : ''}...`, true);
+            showToast(`开始下载 ${selectedModelConfig.name} ${useMirror ? '(镜像)' : ''}...`, 'info');
+
+            const modelResponse = await fetch(urlsToUse.modelUrl);
+            if (!modelResponse.ok) throw new Error(`模型下载失败 (${urlsToUse.modelUrl}): ${modelResponse.statusText} (${modelResponse.status})`);
+            const totalModelBytes = Number(modelResponse.headers.get('Content-Length')) || -1;
+            let loadedModelBytes = 0;
+            const readerModel = modelResponse.body.getReader();
+            const chunksModel = [];
+            updateWebModelProgress(`(1/2) 下载 ONNX: ...`, 0, 0, totalModelBytes);
+            while (true) {
+                const { done, value } = await readerModel.read(); if (done) break;
+                chunksModel.push(value); loadedModelBytes += value.byteLength;
+                const progressPercent = (totalModelBytes > 0) ? (loadedModelBytes / totalModelBytes) * 100 : 0;
+                updateWebModelProgress(`(1/2) 下载 ONNX: ...`, progressPercent, loadedModelBytes, totalModelBytes);
+            }
+            updateWebModelProgress(`(1/2) ONNX 模型下载完成`, 100, loadedModelBytes, totalModelBytes, false, true);
+            const modelBlob = concatenateBlobs(chunksModel);
+            modelBuffer = await modelBlob.arrayBuffer();
+
+            const tagsResponse = await fetch(urlsToUse.tagsUrl);
+            if (!tagsResponse.ok) throw new Error(`标签下载失败 (${urlsToUse.tagsUrl}): ${tagsResponse.statusText} (${tagsResponse.status})`);
+            const totalTagsBytes = Number(tagsResponse.headers.get('Content-Length')) || -1;
+            let loadedTagsBytes = 0;
+            const readerTags = tagsResponse.body.getReader();
+            const chunksTags = [];
+            updateWebModelProgress(`(2/2) 下载标签 CSV...`, 0, 0, totalTagsBytes);
+            while (true) {
+                const { done, value } = await readerTags.read(); if (done) break;
+                chunksTags.push(value); loadedTagsBytes += value.byteLength;
+                const progressPercent = (totalTagsBytes > 0) ? (loadedTagsBytes / totalTagsBytes) * 100 : 0;
+                updateWebModelProgress(`(2/2) 下载标签 CSV...`, progressPercent, loadedTagsBytes, totalTagsBytes);
+            }
+            updateWebModelProgress(`(2/2) 标签 CSV 下载完成`, 100, loadedTagsBytes, totalTagsBytes, false, true);
+            const tagsBlob = concatenateBlobs(chunksTags);
+            tagsTextToParse = await tagsBlob.text();
+
+            if (saveLocally) {
+                updateStatus(`正在保存 ${selectedModelConfig.name} 到本地存储...`, true);
+                webModelInfoSpan.textContent = `正在保存 ${selectedModelConfig.name} 到本地存储...`;
+                await saveModelToDB({
+                    name: selectedModelConfig.name,
+                    modelBlob: new Blob([modelBuffer]),
+                    tagsText: tagsTextToParse,
+                    inputSize: selectedModelConfig.inputSize
+                });
+                webModelInfoSpan.textContent = `${selectedModelConfig.name} 已下载并保存到本地。`;
+                updateStatus(`${selectedModelConfig.name} 已保存到本地。`, false);
+                showToast(`${selectedModelConfig.name} 已保存到本地。`, 'success');
+            } else {
+                webModelInfoSpan.textContent = `${selectedModelConfig.name} 已下载 (未保存到本地)。`;
+                showToast(`${selectedModelConfig.name} 已下载。`, 'info');
+            }
+
+            updateStatus(`正在加载 ${selectedModelConfig.name} 到 ONNX Runtime...`, true);
+            webModelInfoSpan.textContent = `正在加载 ${selectedModelConfig.name} 到 ONNX Runtime...`;
+            webModelInfoSpan.className = 'text-sm text-blue-600 animate-pulse';
+            updateWebModelProgress(`正在创建推理会话...`, 90);
+
+            await loadModelFromArrayBuffer(modelBuffer, selectedModelConfig.name);
+            await parseAndSetTags(tagsTextToParse, selectedModelConfig.name);
+            appState.currentlyLoadedWebModel = { name: selectedModelConfig.name, source: LOADED_MODEL_SOURCE_WEB_DOWNLOAD };
+            return true;
+        }
+
+        async function loadPredefinedBooruTaggerModel(modelName) {
+            const selectedModelConfig = PREDEFINED_MODELS.find(m => m.name === modelName);
+            const predefinedModelSelect = document.getElementById('predefinedModelSelect');
+            const downloadButton = document.getElementById('downloadAndLoadWebModelButton');
+            const deleteButton = document.getElementById('deleteLocalModelButton');
+            const saveLocallyCheckbox = document.getElementById('saveModelLocallyCheckbox');
+            const useHfMirrorCheckbox = document.getElementById('useHfMirrorCheckbox');
+            const webModelInfoSpan = document.getElementById('webModelInfoSpan');
+
+            if (!selectedModelConfig) {
+                 showToast(`错误: 模型 "${modelName}" 配置未找到。`, 'error');
+                 webModelInfoSpan.textContent = `错误: 模型 "${modelName}" 配置未找到。`;
+                 updateWebModelProgress(`模型 "${modelName}" 配置未找到。`, 0, null, null, true);
+                 return;
+            }
+
+            predefinedModelSelect.disabled = true;
+            downloadButton.disabled = true;
+            downloadButton.textContent = '处理中...';
+            downloadButton.classList.remove('btn-success', 'text-green-700', 'border-green-500', 'bg-green-100');
+            downloadButton.classList.add('btn-primary');
+            deleteButton.disabled = true;
+            saveLocallyCheckbox.disabled = true;
+            useHfMirrorCheckbox.disabled = true;
+
+            let modelLoadedSuccessfully = false;
+            try {
+                modelLoadedSuccessfully = await _loadPredefinedModelFromDB(selectedModelConfig);
+
+                if (!modelLoadedSuccessfully) {
+                    const useMirror = document.getElementById('useHfMirrorCheckbox').checked;
+                    const saveLocally = document.getElementById('saveModelLocallyCheckbox').checked;
+                    modelLoadedSuccessfully = await _downloadAndLoadPredefinedModelFromWeb(selectedModelConfig, useMirror, saveLocally);
+                }
+
+                if (modelLoadedSuccessfully) {
+                    webModelInfoSpan.textContent = `${selectedModelConfig.name} 已成功加载。`;
+                    if (appState.currentlyLoadedWebModel.source === LOADED_MODEL_SOURCE_DB) {
+                        webModelInfoSpan.className = 'text-sm text-green-600 font-semibold';
+                        downloadButton.textContent = '加载成功';
+                        downloadButton.classList.remove('btn-primary');
+                        downloadButton.classList.add('btn-success');
+                    } else {
+                         webModelInfoSpan.className = 'text-sm text-green-600 font-semibold';
+                         downloadButton.textContent = '加载成功';
+                         downloadButton.classList.remove('btn-primary');
+                         downloadButton.classList.add('btn-success');
+                    }
+                    downloadButton.disabled = true;
+
+                    updateStatus(`${selectedModelConfig.name} 已加载 (Booru Tags)。`, false);
+                    showToast(`${selectedModelConfig.name} 已成功加载 (Booru Tags)。`, 'success');
+                    updateWebModelProgress(`${selectedModelConfig.name} 已成功加载。`, 100, null, null, false, true);
+                } else {
+                    throw new Error("无法从任何来源加载模型。");
+                }
+
+            } catch (e) {
+                const errorMessage = `处理预定义模型 "${modelName}" (Booru Tags) 失败: ${e.message}`;
+                showToast(errorMessage, 'error', 7000);
+                updateWebModelProgress(errorMessage, (appState.ortSession || appState.allTags.length > 0 ? 50 : 0) , null, null, true, false);
+                webModelInfoSpan.textContent = errorMessage;
+                webModelInfoSpan.className = 'text-sm text-red-600';
+                updateStatus(errorMessage, false);
+                resetLoadedBooruTaggerState();
+            } finally {
+                predefinedModelSelect.disabled = false;
+                useHfMirrorCheckbox.disabled = false;
+                await onPredefinedModelSelectChange();
+                checkRunButtonState();
+            }
+        }
+
+        function handleBooruTaggerModelSourceChange() {
+            resetLoadedBooruTaggerState();
+            const webModelSection = document.getElementById('webModelSection');
+            const localModelInputs = document.getElementById('localModelInputs');
+            const modelInputSizeInput = document.getElementById('modelInputSize');
+            const modelInputSizeInfo = document.getElementById('modelInputSizeInfo');
+            const useHfMirrorCheckbox = document.getElementById('useHfMirrorCheckbox');
+
+            if (appState.currentModelSource === MODEL_SOURCE_WEB) {
+                webModelSection.classList.remove('hidden');
+                localModelInputs.classList.add('hidden');
+                document.getElementById('modelSourceWebButton').classList.add('active');
+                document.getElementById('modelSourceLocalButton').classList.remove('active');
+                modelInputSizeInput.readOnly = true;
+                modelInputSizeInfo.textContent = "模型输入尺寸将由选定模型自动设置。";
+                useHfMirrorCheckbox.disabled = false;
+                onPredefinedModelSelectChange();
+            } else {
+                webModelSection.classList.add('hidden');
+                localModelInputs.classList.remove('hidden');
+                document.getElementById('modelSourceWebButton').classList.remove('active');
+                document.getElementById('modelSourceLocalButton').classList.add('active');
+                modelInputSizeInput.readOnly = false;
+                modelInputSizeInput.value = DEFAULT_MODEL_INPUT_SIZE;
+                modelInputSizeInfo.textContent = "请确保此尺寸与所选本地模型期望的尺寸一致。";
+                useHfMirrorCheckbox.disabled = true;
+            }
+            checkRunButtonState();
+        }
+
+        async function onPredefinedModelSelectChange() {
+            const modelName = document.getElementById('predefinedModelSelect').value;
+            const webModelInfoSpan = document.getElementById('webModelInfoSpan');
+            const downloadButton = document.getElementById('downloadAndLoadWebModelButton');
+            const deleteButton = document.getElementById('deleteLocalModelButton');
+            const saveLocallyCheckbox = document.getElementById('saveModelLocallyCheckbox');
+            const useHfMirrorCheckbox = document.getElementById('useHfMirrorCheckbox');
+            const modelInputSizeInput = document.getElementById('modelInputSize');
+
+            downloadButton.textContent = '选择模型后操作';
+            downloadButton.classList.remove('btn-success', 'text-green-700', 'border-green-500', 'bg-green-100');
+            downloadButton.classList.add('btn-primary');
+            downloadButton.disabled = true;
+
+            document.getElementById('webModelProgressArea').classList.add('hidden');
+            deleteButton.classList.add('hidden');
+            useHfMirrorCheckbox.disabled = !modelName;
+
+            if (!modelName) {
+                webModelInfoSpan.textContent = '请从列表选择一个模型。';
+                saveLocallyCheckbox.disabled = true;
+                saveLocallyCheckbox.checked = true;
+                modelInputSizeInput.value = PREDEFINED_MODELS[0]?.inputSize || DEFAULT_MODEL_INPUT_SIZE;
+
+                if (appState.currentlyLoadedWebModel.name) {
+                    resetLoadedBooruTaggerState();
+                } else {
+                     checkRunButtonState();
+                }
+                return;
+            }
+
+            if (appState.currentlyLoadedWebModel.name && appState.currentlyLoadedWebModel.name !== modelName) {
+                 resetLoadedBooruTaggerState();
+            }
+
+            saveLocallyCheckbox.disabled = false;
+            const selectedModelConfig = PREDEFINED_MODELS.find(m => m.name === modelName);
+            if (selectedModelConfig) {
+                modelInputSizeInput.value = selectedModelConfig.inputSize;
+            }
+
+            try {
+                const localModelData = await getModelFromDB(modelName);
+                if (localModelData) {
+                    webModelInfoSpan.innerHTML = `已选择: ${modelName}。<br><span class="text-blue-600 text-xs">本地已存有副本 (上次访问: ${new Date(localModelData.lastAccessed).toLocaleDateString()})。</span>`;
+                    downloadButton.textContent = '加载本地副本';
+                    deleteButton.classList.remove('hidden');
+                    deleteButton.disabled = false;
+                    saveLocallyCheckbox.disabled = true;
+                    saveLocallyCheckbox.checked = true;
+                    useHfMirrorCheckbox.disabled = true;
+
+                    if (appState.currentlyLoadedWebModel.name === modelName && appState.currentlyLoadedWebModel.source === LOADED_MODEL_SOURCE_DB) {
+                        downloadButton.textContent = '加载成功';
+                        downloadButton.classList.remove('btn-primary');
+                        downloadButton.classList.add('btn-success');
+                        downloadButton.disabled = true;
+                    } else {
+                        downloadButton.disabled = false;
+                    }
+
+                } else {
+                    webModelInfoSpan.textContent = `已选择: ${modelName}。点击按钮以下载和加载。`;
+                    downloadButton.textContent = '下载并加载模型';
+                    saveLocallyCheckbox.checked = true;
+                    useHfMirrorCheckbox.disabled = false;
+                    downloadButton.disabled = false;
+                }
+            } catch (e) {
+                const dbErrorMsg = `检查本地存储时出错: ${e.message || e}`;
+                webModelInfoSpan.textContent = dbErrorMsg;
+                showToast(dbErrorMsg, 'error');
+                downloadButton.textContent = '下载并加载模型';
+                downloadButton.disabled = false;
+                saveLocallyCheckbox.checked = true;
+                useHfMirrorCheckbox.disabled = false;
+            }
+            checkRunButtonState();
+        }
+
+        function handleBooruTaggerTriggerPositionChange() {
+            const triggerWordGroup = document.getElementById('triggerWordGroup');
+            if (document.getElementById('triggerPosition').value === 'none') {
+                triggerWordGroup.classList.add('hidden');
+                document.getElementById('triggerWord').value = '';
+            } else {
+                triggerWordGroup.classList.remove('hidden');
+            }
+        }
+
+        function handleSliderInput(sliderElementId, valueSpanElementId) {
+            const slider = document.getElementById(sliderElementId);
+            const valueSpan = document.getElementById(valueSpanElementId);
+            valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+        }
+
+        async function scanDirectoryForImages(directoryHandle, currentRelativePath, fileListStore) {
+            try {
+                for await (const entry of directoryHandle.values()) {
+                    const entryRelativePath = (currentRelativePath ? currentRelativePath + '/' : '') + entry.name;
+                    if (entry.kind === 'file') {
+                        const fileNameLower = entry.name.toLowerCase();
+                        if (fileNameLower.match(/\.(jpe?g|png|gif|webp|bmp)$/i)) {
+                            try {
+                                const file = await entry.getFile();
+                                fileListStore.push({
+                                    file: file,
+                                    name: entry.name,
+                                    relativePath: entryRelativePath,
+                                    parentDirectoryHandle: directoryHandle
+                                });
+                            } catch (e) {
+                                console.warn(`无法读取文件 ${entryRelativePath}: ${e.message}`);
+                                showToast(`警告: 无法读取文件 ${entryRelativePath}。权限问题或文件已损坏？`, 'warning', 4000);
+                            }
+                        }
+                    } else if (entry.kind === 'directory') {
+                        if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+                            console.log(`跳过扫描目录: ${entryRelativePath}`);
+                            continue;
+                        }
+                        const subDirectoryHandle = await directoryHandle.getDirectoryHandle(entry.name, { create: false });
+                        await scanDirectoryForImages(subDirectoryHandle, entryRelativePath, fileListStore);
+                    }
+                }
+            } catch (scanError) {
+                console.error(`扫描目录 "${directoryHandle.name}" 出错: `, scanError);
+                showToast(`扫描目录 "${directoryHandle.name}" 出错: ${scanError.message}`, 'error', 5000);
+            }
+        }
+
+        function _setupUIElementsAndChecks() {
+            const localFileWarning = document.getElementById('localFileWarning');
+            const selectAndProcessFolderButton = document.getElementById('selectAndProcessFolderButton');
+
+            if (!window.showDirectoryPicker) {
+                selectAndProcessFolderButton.disabled = true;
+                selectAndProcessFolderButton.title = "此功能需要现代浏览器并通过 http(s):// 访问 (例如 http://localhost)。直接打开file:///路径可能不支持。";
+                localFileWarning.classList.remove('hidden');
+            } else {
+                 localFileWarning.classList.add('hidden');
+            }
+        }
+
+        async function _initializeONNXRuntime() {
+            try {
+                updateStatus("正在初始化 ONNX Runtime Web...", true);
+                ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
+                if (!navigator.gpu) {
+                    updateStatus("WebGPU 不可用。将回退到 WASM (速度较慢)。", false);
+                    showToast("WebGPU 不可用，使用 WASM 后端。", "warning");
+                    ort.env.executionProviders = ['wasm'];
+                } else {
+                    ort.env.executionProviders = ['webgpu', 'wasm'];
+                    updateStatus("ONNX Runtime Web 初始化完成。", false);
+                }
+            } catch (e) {
+                const errorMsg = `初始化 ONNX Runtime 失败: ${e.message}. 可能需要刷新页面或检查浏览器兼容性。`;
+                updateStatus(errorMsg, false);
+                showToast(errorMsg, 'error', 7000);
+                throw e;
+            }
+        }
+
+        function _initializeImageProcessingWorker() {
+            appState.imageProcessingWorker = createImageProcessorWorker();
+            appState.imageProcessingWorker.onmessage = (event) => {
+                const { id, status, tensorBuffer, dimensions, dataUrl, originalName, message, stack } = event.data;
+                const promiseActions = appState.pendingImagePromises[id];
+                if (promiseActions) {
+                    if (status === 'success') {
+                        if (appState.currentTaggerEngine === TAGGER_ENGINE_BOORU) {
+                            const tensorData = new Float32Array(tensorBuffer);
+                            promiseActions.resolve({ tensorData, dimensions, dataUrl, originalName });
+                        } else {
+                            promiseActions.resolve({ dataUrl, originalName });
+                        }
+                    } else {
+                        console.error(`Worker error for ${originalName}: ${message}`, stack);
+                        promiseActions.reject(new Error(`图像处理工作线程错误 (文件: ${originalName}): ${message}`));
+                    }
+                    delete appState.pendingImagePromises[id];
+                }
+            };
+            appState.imageProcessingWorker.onerror = (error) => {
+                console.error("图像处理工作线程发生通用错误:", error);
+                const errorMsg = `图像处理工作线程发生错误: ${error.message || '未知错误'}. 可能需要刷新页面。`;
+                showToast(errorMsg, 'error', 7000);
+                Object.values(appState.pendingImagePromises).forEach(p => p.reject(new Error("图像处理工作线程失败。")));
+                appState.pendingImagePromises = {};
+            };
+        }
+
+        function _populatePredefinedModelsSelect() {
+            const predefinedModelSelect = document.getElementById('predefinedModelSelect');
+            PREDEFINED_MODELS.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name; option.textContent = model.name;
+                predefinedModelSelect.appendChild(option);
+            });
+        }
+
+        async function _initializeDB() {
+            try {
+                await initDB();
+                updateStatus("准备就绪。IndexedDB 已初始化。", false);
+            } catch (e) {
+                 const dbErrorMsg = `IndexedDB 初始化失败: ${e.message || e}. 本地模型存储功能可能不可用。`;
+                 showToast(dbErrorMsg, 'error', 7000);
+                 updateStatus(`准备就绪。IndexedDB 初始化失败。本地模型存储可能受限。`, false);
+            }
+        }
+
+        async function warmUpNLApi() {
+            if (appState.currentTaggerEngine === TAGGER_ENGINE_NL &&
+                appState.nlApiUrl && appState.nlApiKey && appState.nlApiModelName &&
+                !appState.isNLApiWarmedUp) {
+
+                console.log("Attempting to warm up NL API...");
+                showToast("正在尝试预热NL API连接...", "info", 2500);
+                try {
+                    const response = await fetch(appState.nlApiUrl, {
+                        method: 'OPTIONS',
+                        headers: {
+                            'Authorization': `Bearer ${appState.nlApiKey}`,
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    if (response.ok || response.status === 204 || response.status === 405) {
+                        console.log("NL API warm-up OPTIONS request successful, status:", response.status);
+                        showToast("NL API 接口探测成功。", "success", 2000);
+                        appState.isNLApiWarmedUp = true;
+                    } else {
+                        console.warn("NL API warm-up OPTIONS request failed with status:", response.status, await response.text());
+                        showToast(`NL API 接口探测失败 (状态: ${response.status})。请检查API设置和网络。`, "warning", 4000);
+                        appState.isNLApiWarmedUp = false;
+                    }
+                } catch (error) {
+                    console.warn("NL API warm-up OPTIONS request failed:", error.message);
+                    showToast(`NL API 接口探测连接失败: ${error.message}`, "error", 4000);
+                    appState.isNLApiWarmedUp = false;
+                }
+            }
+        }
+
+
+        function _loadNLTaggerSettings() {
+            const storedApiUrl = localStorage.getItem(NL_TAGGER_API_URL_STORAGE_KEY);
+            const storedApiKey = localStorage.getItem(NL_TAGGER_API_KEY_STORAGE_KEY);
+            const storedModelName = localStorage.getItem(NL_TAGGER_MODEL_NAME_STORAGE_KEY);
+
+            const apiUrlInput = document.getElementById('nlApiUrl');
+            const apiKeyInput = document.getElementById('nlApiKey');
+            const apiModelNameInput = document.getElementById('nlApiModelName');
+
+            if (storedApiUrl) {
+                appState.nlApiUrl = storedApiUrl;
+                apiUrlInput.value = storedApiUrl;
+            }
+            if (storedApiKey) {
+                appState.nlApiKey = storedApiKey;
+                apiKeyInput.value = storedApiKey;
+            }
+            appState.nlApiModelName = storedModelName || 'gemini-2.5-pro-preview-05-06';
+            apiModelNameInput.value = appState.nlApiModelName;
+            document.getElementById('nlTaggerModelInfoSpan').textContent = `使用模型: ${appState.nlApiModelName}`;
+
+            if (appState.nlApiUrl && appState.nlApiKey && appState.nlApiModelName) {
+                 warmUpNLApi();
+            }
+        }
+
+
+        function _attachEventListeners() {
+            document.getElementById('enableAdvancedApiParams').addEventListener('change', (event) => {
+                const container = document.getElementById('advancedApiParamsContainer');
+                container.classList.toggle('hidden', !event.target.checked);
+            });
+ 
+            document.getElementById('temperatureSlider').addEventListener('input', () => handleSliderInput('temperatureSlider', 'temperatureValue'));
+            document.getElementById('topPSlider').addEventListener('input', () => handleSliderInput('topPSlider', 'topPValue'));
+ 
+            // 同时，为了让滑块的初始值能正确显示，找到 _setInitialUIState 函数，在里面添加两行代码
+            function _setInitialUIState() {
+                // ...函数已有的内容...
+                handleSliderInput('threshold', 'thresholdValue');
+                handleSliderInput('charThreshold', 'charThresholdValue');
+    
+                // --- 在这里添加下面两行 ---
+                handleSliderInput('temperatureSlider', 'temperatureValue');
+                handleSliderInput('topPSlider', 'topPValue');
+ 
+                checkRunButtonState();
+            }
+
+            document.getElementById('taggerEngineSelect').addEventListener('change', handleTaggerEngineChange);
+
+            document.getElementById('nlApiUrl').addEventListener('input', (event) => {
+                appState.nlApiUrl = event.target.value.trim();
+                localStorage.setItem(NL_TAGGER_API_URL_STORAGE_KEY, appState.nlApiUrl);
+                appState.isNLApiWarmedUp = false;
+                checkRunButtonState();
+                warmUpNLApi();
+            });
+            document.getElementById('nlApiKey').addEventListener('input', (event) => {
+                appState.nlApiKey = event.target.value.trim();
+                localStorage.setItem(NL_TAGGER_API_KEY_STORAGE_KEY, appState.nlApiKey);
+                appState.isNLApiWarmedUp = false;
+                checkRunButtonState();
+                warmUpNLApi();
+            });
+            document.getElementById('nlApiModelName').addEventListener('input', (event) => {
+                appState.nlApiModelName = event.target.value.trim();
+                localStorage.setItem(NL_TAGGER_MODEL_NAME_STORAGE_KEY, appState.nlApiModelName);
+                document.getElementById('nlTaggerModelInfoSpan').textContent = `使用模型: ${appState.nlApiModelName || '未指定'}`;
+                appState.isNLApiWarmedUp = false;
+                checkRunButtonState();
+                warmUpNLApi();
+            });
+
+
+            document.getElementById('modelSourceWebButton').addEventListener('click', () => {
+                appState.currentModelSource = MODEL_SOURCE_WEB;
+                handleBooruTaggerModelSourceChange();
+            });
+            document.getElementById('modelSourceLocalButton').addEventListener('click', () => {
+                appState.currentModelSource = MODEL_SOURCE_LOCAL;
+                handleBooruTaggerModelSourceChange();
+            });
+
+            document.getElementById('predefinedModelSelect').addEventListener('change', onPredefinedModelSelectChange);
+            document.getElementById('useHfMirrorCheckbox').addEventListener('change', () => {
+                if (appState.currentModelSource === MODEL_SOURCE_WEB && document.getElementById('predefinedModelSelect').value) {
+                    onPredefinedModelSelectChange();
+                }
+            });
+
+            document.getElementById('triggerPosition').addEventListener('change', handleBooruTaggerTriggerPositionChange);
+            document.getElementById('threshold').addEventListener('input', () => handleSliderInput('threshold', 'thresholdValue'));
+            document.getElementById('charThreshold').addEventListener('input', () => handleSliderInput('charThreshold', 'charThresholdValue'));
+
+            document.getElementById('downloadAndLoadWebModelButton').addEventListener('click', async () => {
+                const modelName = document.getElementById('predefinedModelSelect').value;
+                if (!modelName) {
+                    showToast('错误: 没有选择Booru Tags模型。', 'error');
+                    document.getElementById('webModelInfoSpan').textContent = '错误: 没有选择Booru Tags模型。';
+                    return;
+                }
+                await loadPredefinedBooruTaggerModel(modelName);
+            });
+
+            document.getElementById('deleteLocalModelButton').addEventListener('click', async () => {
+                const modelName = document.getElementById('predefinedModelSelect').value;
+                if (!modelName) { showToast('错误: 没有选择要删除的Booru Tags模型。', 'error'); return; }
+
+                if (window.confirm(`您确定要从本地存储中删除Booru Tags模型 "${modelName}" 吗？此操作不可撤销。`)) {
+                    try {
+                        updateStatus(`正在删除本地Booru Tags模型 ${modelName}...`, true);
+                        document.getElementById('deleteLocalModelButton').disabled = true;
+                        document.getElementById('downloadAndLoadWebModelButton').disabled = true;
+
+                        await deleteModelFromDB(modelName);
+                        updateStatus(`Booru Tags模型 ${modelName} 已从本地删除。`, false);
+                        showToast(`Booru Tags模型 ${modelName} 已从本地删除。`, 'success');
+
+                        if (appState.currentlyLoadedWebModel.name === modelName) {
+                            resetLoadedBooruTaggerState();
+                            document.getElementById('predefinedModelSelect').value = '';
+                            onPredefinedModelSelectChange();
+                        } else {
+                            await onPredefinedModelSelectChange();
+                        }
+                    } catch (e) {
+                        const deleteErrorMsg = `删除Booru Tags模型 ${modelName} 失败: ${e.message}`;
+                        updateStatus(deleteErrorMsg, false);
+                        showToast(deleteErrorMsg, 'error');
+                        document.getElementById('webModelInfoSpan').textContent = deleteErrorMsg;
+                        document.getElementById('deleteLocalModelButton').disabled = false;
+                        document.getElementById('downloadAndLoadWebModelButton').disabled =
+                            !document.getElementById('predefinedModelSelect').value ||
+                            (appState.currentlyLoadedWebModel.name === document.getElementById('predefinedModelSelect').value &&
+                             appState.currentlyLoadedWebModel.source === LOADED_MODEL_SOURCE_DB);
+
+                    } finally {
+                        checkRunButtonState();
+                    }
+                }
+            });
+
+            document.getElementById('modelFile').addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                const modelFileInfoSpan = document.getElementById('modelFileInfoSpan');
+                if (!file) {
+                    modelFileInfoSpan.textContent = '未选择模型';
+                    modelFileInfoSpan.className = 'text-sm text-gray-500 mt-1';
+                    appState.ortSession = null;
+                    checkRunButtonState();
+                    return;
+                }
+                updateStatus(`准备加载本地Booru Tags模型: ${file.name}...`, true);
+                modelFileInfoSpan.textContent = `已选择: ${file.name}`;
+                modelFileInfoSpan.className = 'text-sm text-gray-500 mt-1';
+                try {
+                    updateStatus(`正在读取文件: ${file.name}...`, true);
+                    const buffer = await file.arrayBuffer();
+                    updateStatus(`正在创建推理会话: ${file.name}...`, true);
+                    await loadModelFromArrayBuffer(buffer, file.name);
+                    appState.currentlyLoadedWebModel = { name: file.name, source: LOADED_MODEL_SOURCE_LOCAL_FILE };
+                    updateStatus(`本地Booru Tags模型 "${file.name}" 已加载。`, false);
+                    showToast(`本地Booru Tags模型 "${file.name}" 已加载。`, 'success');
+                    modelFileInfoSpan.className = 'text-sm text-green-600 mt-1 font-semibold';
+                } catch (e) {
+                    const loadErrorMsg = `加载本地Booru Tags模型 "${file.name}" 失败: ${e.message}`;
+                    updateStatus(loadErrorMsg, false);
+                    showToast(loadErrorMsg, 'error');
+                    modelFileInfoSpan.className = 'text-sm text-red-600 mt-1';
+                    resetLoadedBooruTaggerState();
+                }
+                checkRunButtonState();
+            });
+
+            document.getElementById('tagsFile').addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                const tagsFileInfoSpan = document.getElementById('tagsFileInfoSpan');
+                if (!file) {
+                    tagsFileInfoSpan.textContent = '未选择标签文件';
+                    tagsFileInfoSpan.className = 'text-sm text-gray-500 mt-1';
+                    appState.allTags = [];
+                    checkRunButtonState();
+                    return;
+                }
+                updateStatus(`准备加载本地Booru Tags标签: ${file.name}...`, true);
+                tagsFileInfoSpan.textContent = `已选择: ${file.name}`;
+                tagsFileInfoSpan.className = 'text-sm text-gray-500 mt-1';
+                try {
+                    updateStatus(`正在读取标签文件: ${file.name}...`, true);
+                    const text = await file.text();
+                    updateStatus(`正在解析标签: ${file.name}...`, true);
+                    await parseAndSetTags(text, file.name);
+                    updateStatus(`本地Booru Tags标签 "${file.name}" 加载: ${appState.allTags.length} 个标签。`, false);
+                    showToast(`本地Booru Tags标签 "${file.name}" 加载: ${appState.allTags.length} 个标签。`, 'success');
+                    tagsFileInfoSpan.className = 'text-sm text-green-600 mt-1 font-semibold';
+                } catch (e) {
+                    const loadErrorMsg = `加载本地Booru Tags标签 "${file.name}" 失败: ${e.message}`;
+                    updateStatus(loadErrorMsg, false);
+                    showToast(loadErrorMsg, 'error');
+                    tagsFileInfoSpan.className = 'text-sm text-red-600 mt-1';
+                    appState.allTags = [];
+                }
+                checkRunButtonState();
+            });
+
+            const singleImageUploadArea = document.getElementById('singleImageUploadArea');
+            singleImageUploadArea.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                singleImageUploadArea.classList.add('dragover');
+            });
+            singleImageUploadArea.addEventListener('dragleave', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                singleImageUploadArea.classList.remove('dragover');
+            });
+            singleImageUploadArea.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                singleImageUploadArea.classList.remove('dragover');
+                const files = event.dataTransfer.files;
+                if (files.length > 0) {
+                    document.getElementById('imageFiles').files = files;
+                    const changeEvent = new Event('change', { bubbles: true });
+                    document.getElementById('imageFiles').dispatchEvent(changeEvent);
+                    showInitialImagePreviews(files);
+                }
+            });
+
+            document.getElementById('selectSingleImagesButton').addEventListener('click', () => {
+                document.getElementById('imageFiles').click();
+            });
+
+            document.getElementById('imageFiles').addEventListener('change', (event) => {
+                const imageFilesInfo = document.getElementById('imageFilesInfo');
+                const files = event.target.files;
+                if (files.length > 0) {
+                    imageFilesInfo.textContent = `已选择 ${files.length} 个图像文件。`;
+                    imageFilesInfo.className = 'text-sm text-green-600 mt-3 font-semibold';
+                    appState.rootProcessingHandle = null;
+                    appState.imageFilesToProcessInBatch = [];
+                    document.getElementById('imageFolderInfo').textContent = '未选择文件夹';
+                    document.getElementById('imageFolderInfo').className = 'text-sm text-gray-500 mt-3';
+                    showInitialImagePreviews(files);
+                } else {
+                    imageFilesInfo.textContent = '未选择图像';
+                    imageFilesInfo.className = 'text-sm text-gray-500 mt-3';
+                    document.getElementById('results-container').innerHTML = '';
+                    appState.allProcessedResults = [];
+                }
+                checkRunButtonState();
+            });
+
+            document.getElementById('selectAndProcessFolderButton').addEventListener('click', async () => {
+                if (!window.showDirectoryPicker) {
+                    showToast("错误：此功能需要现代浏览器并通过 http(s):// 访问。", "error", 7000);
+                    return;
+                }
+                try {
+                    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    if (handle) {
+                        appState.rootProcessingHandle = handle;
+                        document.getElementById('imageFiles').value = '';
+                        const imageFilesInfo = document.getElementById('imageFilesInfo');
+                        imageFilesInfo.textContent = '未选择图像';
+                        imageFilesInfo.className = 'text-sm text-gray-500 mt-3';
+
+                        updateStatus("正在扫描文件夹中的图片...", true);
+                        const imageFolderInfo = document.getElementById('imageFolderInfo');
+                        imageFolderInfo.textContent = `正在扫描文件夹 "${handle.name}"...`;
+                        imageFolderInfo.className = 'text-sm text-blue-600 mt-3 animate-pulse';
+
+                        appState.imageFilesToProcessInBatch = [];
+                        await scanDirectoryForImages(handle, '', appState.imageFilesToProcessInBatch);
+
+                        updateStatus(`扫描完成，发现 ${appState.imageFilesToProcessInBatch.length} 张图片。`, false);
+                        imageFolderInfo.textContent = `已选文件夹 "${handle.name}" (${appState.imageFilesToProcessInBatch.length} 张图片)。`;
+                        imageFolderInfo.className = 'text-sm text-green-600 mt-3 font-semibold';
+                        if (appState.imageFilesToProcessInBatch.length === 0) {
+                            showToast("所选文件夹中未找到支持的图片格式 (jpg, png, gif, webp, bmp)。", "warning");
+                        }
+                        document.getElementById('results-container').innerHTML = '';
+                        appState.allProcessedResults = [];
+                        resetMainProgress();
+                    }
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        showToast('用户取消了文件夹选择。', 'info');
+                    } else {
+                        showToast(`选择处理文件夹失败: ${error.message}`, 'error', 7000);
+                        console.error("选择处理文件夹时出错:", error);
+                    }
+                    appState.rootProcessingHandle = null;
+                    const imageFolderInfo = document.getElementById('imageFolderInfo');
+                    imageFolderInfo.textContent = '选择文件夹失败或已取消。';
+                    imageFolderInfo.className = 'text-sm text-red-600 mt-3';
+                }
+                checkRunButtonState();
+            });
+
+            document.getElementById('runButton').addEventListener('click', () => triggerTaggingProcess());
+            document.getElementById('saveAllButton').addEventListener('click', downloadAllTagsAsZip);
+
+            const helpModal = document.getElementById('helpModal');
+            const showHelpButton = document.getElementById('showHelpModalButton');
+            const closeHelpButton = document.getElementById('closeHelpModalButton');
+            const helpTabButtons = document.querySelectorAll('.help-tab-button');
+
+            showHelpButton.addEventListener('click', () => {
+                helpModal.classList.remove('hidden');
+                _setActiveHelpTab('intro');
+            });
+            closeHelpButton.addEventListener('click', () => {
+                helpModal.classList.add('hidden');
+            });
+            helpModal.addEventListener('click', (event) => {
+                if (event.target === helpModal) {
+                    helpModal.classList.add('hidden');
+                }
+            });
+
+            helpTabButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const tabName = button.dataset.tab;
+                    _setActiveHelpTab(tabName);
+                });
+            });
+        }
+
+        function showInitialImagePreviews(files) {
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = '';
+            appState.allProcessedResults = [];
+            resetMainProgress();
+
+            if (!files || files.length === 0) return;
+
+            Array.from(files).forEach((file, index) => {
+                if (!file.type.startsWith('image/')) return;
+
+                const previewCard = document.createElement('div');
+                previewCard.className = 'glass-card rounded-2xl p-4 flex flex-col space-y-2 items-center card-appear';
+                previewCard.style.animationDelay = `${index * 0.05}s`;
+
+                const img = document.createElement('img');
+                img.className = 'w-full h-40 object-contain rounded-lg bg-gray-100 border border-gray-200';
+                img.alt = file.name;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+
+                const nameP = document.createElement('p');
+                nameP.className = 'text-xs text-gray-600 font-medium truncate w-full text-center';
+                nameP.textContent = file.name;
+
+                previewCard.appendChild(img);
+                previewCard.appendChild(nameP);
+                resultsContainer.appendChild(previewCard);
+            });
+        }
+
+
+        function _setActiveHelpTab(tabName) {
+            const helpTabButtons = document.querySelectorAll('.help-tab-button');
+            const helpTabContents = document.querySelectorAll('.help-modal-content');
+            const contentPane = document.querySelector('.help-modal-content-pane');
+
+            helpTabButtons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('active');
+                }
+            });
+            helpTabContents.forEach(content => {
+                content.classList.add('hidden');
+                if (content.id === `help-tab-${tabName}`) {
+                    content.classList.remove('hidden');
+                }
+            });
+            if(contentPane) contentPane.scrollTop = 0;
+        }
+
+        function _setInitialUIState() {
+            handleTaggerEngineChange();
+            handleBooruTaggerModelSourceChange();
+            handleBooruTaggerTriggerPositionChange();
+            handleSliderInput('threshold', 'thresholdValue');
+            handleSliderInput('charThreshold', 'charThresholdValue');
+            checkRunButtonState();
+        }
+
+        async function initializeApp() {
+            _setupUIElementsAndChecks();
+            _loadNLTaggerSettings();
+            try {
+                await _initializeONNXRuntime();
+            } catch (e) {
+                console.error("ONNX Runtime 初始化关键失败，Booru Tags 功能可能不可用。", e);
+                document.getElementById('downloadAndLoadWebModelButton').disabled = true;
+                document.getElementById('modelFile').disabled = true;
+            }
+            _initializeImageProcessingWorker();
+            _populatePredefinedModelsSelect();
+            await _initializeDB();
+            _attachEventListeners();
+            _setInitialUIState();
+        }
+
+        let isCurrentlyProcessing = false;
+
+        async function triggerTaggingProcess() {
+            if (isCurrentlyProcessing) {
+                showToast("正在处理中，请稍候...", "info");
+                return;
+            }
+            isCurrentlyProcessing = true;
+            document.getElementById('runButton').disabled = true;
+
+            let modelReady = false;
+            if (appState.currentTaggerEngine === TAGGER_ENGINE_BOORU) {
+                modelReady = appState.ortSession && appState.allTags.length > 0;
+                if (!modelReady) {
+                    showToast("请先加载有效的 Booru Tags 模型和标签文件。", "warning");
+                    updateStatus("请先加载有效的 Booru Tags 模型和标签文件。", false);
+                }
+            } else if (appState.currentTaggerEngine === TAGGER_ENGINE_NL) {
+                modelReady = !!appState.nlApiKey && !!appState.nlApiUrl && !!appState.nlApiModelName;
+                if (!modelReady) {
+                    showToast("请完整填写 NL Captions 的 API URL、API Key 和模型名称。", "warning");
+                    updateStatus("请完整填写 NL Captions 的 API 参数。", false);
+                } else if (!appState.isNLApiWarmedUp) {
+                    await warmUpNLApi();
+                    if (!appState.isNLApiWarmedUp) {
+                         showToast("NL API 接口探测失败。请检查设置和网络。处理可能失败。", "warning", 5000);
+                    }
+                }
+            }
+
+            if (!modelReady) {
+                isCurrentlyProcessing = false;
+                checkRunButtonState();
+                return;
+            }
+
+
+            let imageDataSource = [];
+            let currentModeIsBatch = false;
+            const imageFilesInput = document.getElementById('imageFiles');
+            const resultsContainer = document.getElementById('results-container');
+
+
+            if (appState.rootProcessingHandle && appState.imageFilesToProcessInBatch.length > 0) {
+                currentModeIsBatch = true;
+                imageDataSource = [...appState.imageFilesToProcessInBatch];
+                document.getElementById('saveAllButton').classList.add('hidden');
+                document.getElementById('saveAllButton').disabled = true;
+                resultsContainer.innerHTML = '';
+                appState.allProcessedResults = [];
+            } else if (imageFilesInput.files.length > 0) {
+                currentModeIsBatch = false;
+                const files = imageFilesInput.files;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type.startsWith('image/')) {
+                        imageDataSource.push({
+                            file: file,
+                            name: file.name,
+                            relativePath: file.name,
+                            parentDirectoryHandle: null
+                        });
+                    }
+                }
+                resultsContainer.innerHTML = '';
+                appState.allProcessedResults = [];
+            }
+
+            if (imageDataSource.length === 0) {
+                showToast("请选择要处理的图像文件或包含图像的文件夹。", 'warning');
+                updateStatus("请选择图像或文件夹。", false);
+                resultsContainer.innerHTML = '';
+                appState.allProcessedResults = [];
+                isCurrentlyProcessing = false;
+                checkRunButtonState();
+                return;
+            }
+
+            if (currentModeIsBatch) {
+                imageDataSource.sort((a, b) => naturalSortComparer(a.relativePath, b.relativePath));
+            } else {
+                imageDataSource.sort((a, b) => naturalSortComparer(a.name, b.name));
+            }
+
+            if (appState.currentTaggerEngine === TAGGER_ENGINE_BOORU) {
+                await processWithBooruTaggerInternal(imageDataSource, currentModeIsBatch);
+            } else if (appState.currentTaggerEngine === TAGGER_ENGINE_NL) {
+                await processWithNLTaggerAPI(imageDataSource, currentModeIsBatch);
+            }
+
+            isCurrentlyProcessing = false;
+            checkRunButtonState();
+        }
+
+        async function processWithBooruTaggerInternal(dataSource, isBatchModeForProcessing) {
+            const resultsContainer = document.getElementById('results-container');
+            const inputSize = parseInt(document.getElementById('modelInputSize').value);
+            const threshold = parseFloat(document.getElementById('threshold').value);
+            const charThreshold = parseFloat(document.getElementById('charThreshold').value);
+            const triggerWord = document.getElementById('triggerWord').value.trim();
+            const triggerPosition = document.getElementById('triggerPosition').value;
+            const shouldEscapeParentheses = document.getElementById('escapeParentheses').checked;
+
+            updateStatus(`开始处理 ${dataSource.length} 个图像 (Booru Tags)...`, true);
+            showToast(`开始处理 ${dataSource.length} 个图像 (Booru Tags)...`, 'info');
+
+            document.getElementById('mainProgressArea').classList.remove('hidden');
+            updateMainProgress(0, dataSource.length);
+
+            for (let i = 0; i < dataSource.length; i++) {
+                const imageInfo = dataSource[i];
+                const imageFile = imageInfo.file;
+                let cardElement;
+
+                updateStatus(`(Booru Tags) 正在处理 ${i + 1} / ${dataSource.length}: ${imageInfo.name}`, true);
+                updateMainProgress(i + 1, dataSource.length);
+
+                try {
+                    const { tensorData, dimensions, dataUrl } = await preprocessImageWithWorker(imageFile, inputSize, TAGGER_ENGINE_BOORU);
+                    const tensor = new ort.Tensor('float32', tensorData, dimensions);
+                    const feeds = { [appState.modelInputName]: tensor };
+                    const outputData = await appState.ortSession.run(feeds);
+                    const output = outputData[appState.ortSession.outputNames[0]];
+                    const scores = output.data;
+
+                    let detectedTags = [];
+                    for (let j = 0; j < scores.length; j++) {
+                        const score = scores[j]; const tag = appState.allTags[j];
+                        if (tag) {
+                            const tagThresholdToUse = tag.category === TAG_CATEGORY_CHARACTER ? charThreshold : threshold;
+                            if (score >= tagThresholdToUse) {
+                                detectedTags.push({ tag: tag.name, score: score, category: tag.category });
+                            }
+                        }
+                    }
+                    detectedTags.sort((a, b) => b.score - a.score);
+
+                    let processedTagNames = detectedTags.map(t => {
+                        let tagName = t.tag;
+                        if (shouldEscapeParentheses) tagName = tagName.replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+                        return tagName;
+                    });
+                    let joinedProcessedTags = processedTagNames.join(', ');
+                    const tagsWithTriggerArray = applyTriggerWord(processedTagNames.length > 0 ? [joinedProcessedTags] : [], triggerWord, triggerPosition);
+                    const finalTagsStringForCopyAndSave = tagsWithTriggerArray[0] || "";
+
+                    let saveStatusMessage = '';
+                    let saveStatusColor = '#6b7280';
+
+                    if (isBatchModeForProcessing && appState.rootProcessingHandle && imageInfo.parentDirectoryHandle) {
+                        const txtFilename = imageInfo.name.replace(/\.[^/.]+$/, "") + '.txt';
+                        try {
+                            const fileHandle = await imageInfo.parentDirectoryHandle.getFileHandle(txtFilename, { create: true });
+                            const writableStream = await fileHandle.createWritable();
+                            await writableStream.write(finalTagsStringForCopyAndSave);
+                            await writableStream.close();
+                            saveStatusMessage = `✅ 标签已自动保存为: ${txtFilename}`;
+                            saveStatusColor = '#10b981';
+                        } catch (saveError) {
+                            console.error(`自动保存文件 ${txtFilename} 失败:`, saveError);
+                            showToast(`自动保存 ${txtFilename} 失败: ${saveError.message}`, 'error', 4000);
+                            saveStatusMessage = `❌ 自动保存失败: ${saveError.message}`;
+                            saveStatusColor = '#ef4444';
+                        }
+                    }
+
+                    cardElement = _createBooruTaggerResultCard(
+                        { name: imageInfo.name, dataUrl: dataUrl },
+                        finalTagsStringForCopyAndSave,
+                        isBatchModeForProcessing,
+                        saveStatusMessage,
+                        saveStatusColor
+                    );
+
+                    appState.allProcessedResults.push({
+                        file: imageFile,
+                        name: imageInfo.name,
+                        originalName: imageInfo.name,
+                        relativePath: imageInfo.relativePath,
+                        tagsString: finalTagsStringForCopyAndSave,
+                        dataUrl: dataUrl,
+                        cardElement: cardElement,
+                        parentDirectoryHandle: imageInfo.parentDirectoryHandle
+                    });
+
+                } catch (error) {
+                    showToast(`(Booru Tags) 处理图像 "${imageInfo.name}" 时出错: ${error.message}`, 'error', 5000);
+                    console.error(`(Booru Tags) 处理图像 ${imageInfo.name} 时发生错误:`, error);
+                    cardElement = _createErrorCard(imageInfo, error, TAGGER_ENGINE_BOORU);
+                    appState.allProcessedResults.push({
+                        file: imageFile, name: imageInfo.name, originalName: imageInfo.name, relativePath: imageInfo.relativePath,
+                        tagsString: `错误: ${error.message}`, dataUrl: null,
+                        cardElement: cardElement, parentDirectoryHandle: imageInfo.parentDirectoryHandle
+                    });
+                }
+                resultsContainer.appendChild(cardElement);
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            updateMainProgress(dataSource.length, dataSource.length);
+            updateStatus(`✨ (Booru Tags) 处理完成: ${dataSource.length} 个图像。`, false);
+            showToast(`🎉 (Booru Tags) 处理完成: ${dataSource.length} 个图像。`, 'success');
+        }
+
+        async function processWithNLTaggerAPI(dataSource, isBatchModeForProcessing) {
+            const resultsContainer = document.getElementById('results-container');
+            const nlTaggerRolePromptText = document.getElementById('nlTaggerRolePrompt').value.trim();
+
+            updateStatus(`开始处理 ${dataSource.length} 个图像 (NL Captions API)...`, true);
+            showToast(`开始处理 ${dataSource.length} 个图像 (NL Captions API)...`, 'info');
+
+            document.getElementById('mainProgressArea').classList.remove('hidden');
+            updateMainProgress(0, dataSource.length);
+
+            for (let i = 0; i < dataSource.length; i++) {
+                const imageInfo = dataSource[i];
+                const imageFile = imageInfo.file;
+                let cardElement;
+                let nlTaggerResponseText = "NL Captions API 未返回有效文本。";
+                let fullNLApiResponseForSaving = { error: { message: nlTaggerResponseText } };
+                let requestSucceeded = false;
+
+                updateStatus(`(NL Captions) 正在处理 ${i + 1} / ${dataSource.length}: ${imageInfo.name}`, true);
+                updateMainProgress(i + 1, dataSource.length);
+
+                for (let attempt = 0; attempt <= NL_API_MAX_RETRIES; attempt++) {
+                    try {
+                        const { dataUrl } = await preprocessImageWithWorker(imageFile, null, TAGGER_ENGINE_NL);
+
+                        let userPromptContent = nlTaggerRolePromptText
+                            ? BASE_VLM_SYSTEM_INSTRUCTION_ROLE_TEMPLATE.replace('{ROLE_NAME}', nlTaggerRolePromptText)
+                            : BASE_VLM_SYSTEM_INSTRUCTION;
+
+
+
+                        // 找到 processWithNLTaggerAPI 函数
+                        // ...
+                        const requestPayload = {
+                            model: appState.nlApiModelName,
+                            messages: [
+                                {
+                                    role: "user",
+                                    content: [
+                                        { type: "text", text: userPromptContent },
+                                        { type: "image_url", image_url: { "url": dataUrl } }
+                                    ]
+                                }
+                            ],
+                            max_tokens: 65536,
+                        };
+
+                        // --- 新增的核心逻辑在这里 ---
+                        // 检查高级参数开关是否启用
+                        const enableAdvanced = document.getElementById('enableAdvancedApiParams').checked;
+                        if (enableAdvanced) {
+                            // 如果启用，则从UI滑块获取值并添加到请求体中
+                            requestPayload.temperature = parseFloat(document.getElementById('temperatureSlider').value);
+                            requestPayload.top_p = parseFloat(document.getElementById('topPSlider').value);
+                            // 如果你的API支持Top K，也可以用类似方法添加
+                            // requestPayload.top_k = 40; 
+                        }
+                        // --- 新增逻辑结束 ---
+
+
+                        if (attempt > 0) {
+                            // ...
+                        }
+
+                        // fetch请求现在会使用可能已包含新参数的 requestPayload
+                        const response = await fetch(appState.nlApiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${appState.nlApiKey}`
+                            },
+                            body: JSON.stringify(requestPayload) // 这里无需改变
+                        });
+                        // ... 函数的其余部分 ...
+
+                        if (!response.ok) {
+                            let errorBodyText = await response.text();
+                            let errorMessage = `API 请求失败 (${response.status}): ${response.statusText}`;
+                            try {
+                                const errorBodyJson = JSON.parse(errorBodyText);
+                                errorMessage = `API 请求失败 (${response.status}): ${errorBodyJson.error?.message || errorBodyJson.detail || response.statusText}`;
+                            } catch (e) { }
+                            console.error('NL Captions API Error Response Text:', errorBodyText);
+                            throw new Error(errorMessage);
+                        }
+
+                        const result = await response.json();
+                        fullNLApiResponseForSaving = result;
+
+                        if (result.choices && result.choices.length > 0 && result.choices[0].message && result.choices[0].message.content && result.choices[0].message.content.trim() !== "") {
+                            nlTaggerResponseText = result.choices[0].message.content.trim();
+                            requestSucceeded = true;
+                            break;
+                        } else {
+                            let specificError = "API响应中未找到有效的描述文本。";
+                            if (result.error && result.error.message) {
+                                specificError = `API 错误: ${result.error.message}`;
+                            }
+                            console.warn("NL Captions API 响应结构意外或内容为空:", result);
+                            nlTaggerResponseText = specificError;
+                            fullNLApiResponseForSaving = { error: { message: specificError, details: result } };
+                            if (attempt < NL_API_MAX_RETRIES) {
+                                await new Promise(resolve => setTimeout(resolve, NL_API_RETRY_DELAY));
+                                continue;
+                            }
+                            throw new Error(specificError);
+                        }
+
+                    } catch (error) {
+                        console.error(`(NL Captions) 处理图像 ${imageInfo.name} (尝试 ${attempt + 1}) 时发生错误:`, error);
+                        nlTaggerResponseText = `错误 (尝试 ${attempt + 1}): ${error.message}`;
+                        fullNLApiResponseForSaving = { error: { message: error.message, attempt: attempt + 1 } };
+
+                        if (attempt < NL_API_MAX_RETRIES) {
+                            await new Promise(resolve => setTimeout(resolve, NL_API_RETRY_DELAY));
+                        } else {
+                            showToast(`(NL Captions) 处理图像 "${imageInfo.name}" 多次尝试后仍然失败: ${error.message}`, 'error', 7000);
+                            cardElement = _createErrorCard(imageInfo, new Error(nlTaggerResponseText), TAGGER_ENGINE_NL);
+                            appState.allProcessedResults.push({
+                                file: imageFile, name: imageInfo.name, originalName: imageInfo.name, relativePath: imageInfo.relativePath,
+                                tagsString: nlTaggerResponseText,
+                                nlTaggerResponse: fullNLApiResponseForSaving,
+                                dataUrl: null,
+                                cardElement: cardElement, parentDirectoryHandle: imageInfo.parentDirectoryHandle
+                            });
+                        }
+                    }
+                }
+
+                if (requestSucceeded) {
+                    let saveStatusMessage = '';
+                    let saveStatusColor = '#6b7280';
+                    if (isBatchModeForProcessing && appState.rootProcessingHandle && imageInfo.parentDirectoryHandle) {
+                        const txtFilename = imageInfo.name.replace(/\.[^/.]+$/, "") + '.txt';
+                        try {
+                            const fileHandle = await imageInfo.parentDirectoryHandle.getFileHandle(txtFilename, { create: true });
+                            const writableStream = await fileHandle.createWritable();
+                            await writableStream.write(nlTaggerResponseText);
+                            await writableStream.close();
+                            saveStatusMessage = `✅ 描述已保存为: ${txtFilename}`;
+                            saveStatusColor = '#10b981';
+                        } catch (saveError) {
+                            console.error(`自动保存 NL Captions 描述文件 ${txtFilename} 失败:`, saveError);
+                            showToast(`自动保存 ${txtFilename} 失败: ${saveError.message}`, 'error', 4000);
+                            saveStatusMessage = `❌ 自动保存失败: ${saveError.message}`;
+                            saveStatusColor = '#ef4444';
+                        }
+                    }
+                    cardElement = _createNLTaggerResultCard(
+                        { name: imageInfo.name, dataUrl: await preprocessImageWithWorker(imageFile, null, TAGGER_ENGINE_NL).then(d => d.dataUrl).catch(() => null) },
+                        nlTaggerResponseText,
+                        fullNLApiResponseForSaving,
+                        isBatchModeForProcessing,
+                        saveStatusMessage,
+                        saveStatusColor
+                    );
+                     appState.allProcessedResults.push({
+                        file: imageFile, name: imageInfo.name, originalName: imageInfo.name, relativePath: imageInfo.relativePath,
+                        tagsString: nlTaggerResponseText,
+                        nlTaggerResponse: fullNLApiResponseForSaving,
+                        dataUrl: await preprocessImageWithWorker(imageFile, null, TAGGER_ENGINE_NL).then(d => d.dataUrl).catch(() => null),
+                        cardElement: cardElement, parentDirectoryHandle: imageInfo.parentDirectoryHandle
+                    });
+                }
+                if (!cardElement) {
+                     cardElement = _createErrorCard(imageInfo, new Error(nlTaggerResponseText || "未知处理错误"), TAGGER_ENGINE_NL);
+                     if (!appState.allProcessedResults.find(r => r.originalName === imageInfo.name)) {
+                        appState.allProcessedResults.push({
+                            file: imageFile, name: imageInfo.name, originalName: imageInfo.name, relativePath: imageInfo.relativePath,
+                            tagsString: nlTaggerResponseText,
+                            nlTaggerResponse: fullNLApiResponseForSaving,
+                            dataUrl: null,
+                            cardElement: cardElement, parentDirectoryHandle: imageInfo.parentDirectoryHandle
+                        });
+                    }
+                }
+
+
+                resultsContainer.appendChild(cardElement);
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            updateMainProgress(dataSource.length, dataSource.length);
+            updateStatus(`✨ (NL Captions) 处理完成: ${dataSource.length} 个图像。`, false);
+            showToast(`🎉 (NL Captions) 处理完成: ${dataSource.length} 个图像。`, 'success');
+        }
+
+
+        function _createBooruTaggerResultCard(imageInfo, finalTagsStringForCopyAndSave, isBatchModeForProcessing, saveStatusMessage = '', saveStatusColor = '#6b7280') {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'glass-card rounded-2xl p-6 flex flex-col space-y-4 card-appear';
+
+            const imgPreview = document.createElement('img');
+            imgPreview.src = imageInfo.dataUrl;
+            imgPreview.alt = imageInfo.name;
+            imgPreview.className = 'w-full h-48 object-contain rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200';
+            cardElement.appendChild(imgPreview);
+
+            const fileNameP = document.createElement('p');
+            fileNameP.className = 'font-bold text-base text-gray-800 truncate';
+            fileNameP.textContent = imageInfo.name;
+            cardElement.appendChild(fileNameP);
+
+            const fileSaveStatusElement = document.createElement('p');
+            fileSaveStatusElement.className = 'text-sm font-medium';
+            fileSaveStatusElement.style.color = saveStatusColor;
+            fileSaveStatusElement.textContent = saveStatusMessage;
+            cardElement.appendChild(fileSaveStatusElement);
+
+            const tagsListDiv = document.createElement('div');
+            tagsListDiv.className = 'tags-list flex flex-wrap gap-2 text-sm';
+            const displayTagsArray = finalTagsStringForCopyAndSave.split(',').map(t => t.trim()).filter(t => t);
+
+            displayTagsArray.forEach((tagText, index) => {
+                const tagPill = document.createElement('span');
+                tagPill.className = 'tag-pill px-3 py-1.5 rounded-full text-xs font-medium';
+                tagPill.textContent = tagText;
+                tagPill.style.setProperty('--index', index);
+                tagsListDiv.appendChild(tagPill);
+            });
+            cardElement.appendChild(tagsListDiv);
+
+            if (finalTagsStringForCopyAndSave) {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn-outline text-sm py-2 px-4 rounded-xl mt-auto self-start font-medium transition-all duration-300 hover:shadow-lg';
+                copyBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+                    </svg>
+                    复制标签 (Booru Tags)
+                `;
+                copyBtn.onclick = () => copyToClipboard(finalTagsStringForCopyAndSave);
+                cardElement.appendChild(copyBtn);
+            }
+
+            if (isBatchModeForProcessing) {
+                if (!saveStatusMessage) {
+                    fileSaveStatusElement.classList.add('hidden');
+                }
+            } else {
+                fileSaveStatusElement.textContent = '预览模式，标签未自动保存。';
+                fileSaveStatusElement.className = 'text-sm text-blue-600 font-medium';
+            }
+
+            return cardElement;
+        }
+
+        function _createNLTaggerResultCard(imageInfo, mainCaptionText, fullNLApiResponse, isBatchModeForProcessing, saveStatusMessage = '', saveStatusColor = '#6b7280') {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'glass-card rounded-2xl p-6 flex flex-col space-y-4 card-appear border-2 border-blue-200';
+
+            const imgPreview = document.createElement('img');
+            imgPreview.src = imageInfo.dataUrl || 'placeholder.png';
+            imgPreview.alt = imageInfo.name;
+            imgPreview.className = 'w-full h-48 object-contain rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200';
+            cardElement.appendChild(imgPreview);
+
+            const fileNameP = document.createElement('p');
+            fileNameP.className = 'font-bold text-base text-gray-800 truncate';
+            fileNameP.textContent = imageInfo.name;
+            cardElement.appendChild(fileNameP);
+
+            const fileSaveStatusElement = document.createElement('p');
+            fileSaveStatusElement.className = 'text-sm font-medium';
+            fileSaveStatusElement.style.color = saveStatusColor;
+            fileSaveStatusElement.textContent = saveStatusMessage;
+            cardElement.appendChild(fileSaveStatusElement);
+
+            const captionIsError = mainCaptionText && mainCaptionText.toLowerCase().startsWith("错误:");
+            const apiResponseHasError = fullNLApiResponse && fullNLApiResponse.error;
+
+
+            if (mainCaptionText) {
+                const captionTitle = document.createElement('h5');
+                captionTitle.className = 'text-sm font-semibold mt-2';
+                captionTitle.textContent = captionIsError ? '错误信息:' : 'NL Captions 描述:';
+                captionTitle.style.color = captionIsError ? '#ef4444' : '#374151';
+                cardElement.appendChild(captionTitle);
+
+                const captionBlock = document.createElement('p');
+                captionBlock.className = 'text-sm leading-relaxed p-3 rounded-md';
+                captionBlock.textContent = mainCaptionText;
+                captionBlock.style.backgroundColor = captionIsError ? 'rgba(254, 226, 226, 0.8)' : 'rgba(243, 244, 246, 0.8)';
+                captionBlock.style.color = captionIsError ? '#c00' : '#374151';
+                cardElement.appendChild(captionBlock);
+
+            } else if (apiResponseHasError && fullNLApiResponse.error.message) {
+                 const errorInfoP = document.createElement('p');
+                 errorInfoP.className = 'text-sm text-red-600 bg-red-50 p-3 rounded-lg';
+                 errorInfoP.textContent = `API 错误: ${fullNLApiResponse.error.message}`;
+                 cardElement.appendChild(errorInfoP);
+            } else if (apiResponseHasError && typeof fullNLApiResponse.error === 'string') {
+                 const errorInfoP = document.createElement('p');
+                 errorInfoP.className = 'text-sm text-red-600 bg-red-50 p-3 rounded-lg';
+                 errorInfoP.textContent = `API 错误: ${fullNLApiResponse.error}`;
+                 cardElement.appendChild(errorInfoP);
+            }
+
+
+            if (mainCaptionText && !captionIsError && !(apiResponseHasError)) {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn-vlm-api text-sm py-2 px-4 rounded-xl mt-auto self-start font-medium transition-all duration-300 hover:shadow-lg';
+                copyBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    复制描述
+                `;
+                copyBtn.onclick = () => copyToClipboard(mainCaptionText);
+                cardElement.appendChild(copyBtn);
+            }
+
+            if (isBatchModeForProcessing) {
+                if (!saveStatusMessage) {
+                    fileSaveStatusElement.classList.add('hidden');
+                }
+            } else {
+                fileSaveStatusElement.textContent = '预览模式，结果未自动保存。';
+                fileSaveStatusElement.className = 'text-sm text-blue-600 font-medium';
+            }
+            return cardElement;
+        }
+
+
+        function _createErrorCard(imageInfo, error, engineTypeDisplay) {
+            const cardElement = document.createElement('div');
+            cardElement.className = 'glass-card rounded-2xl p-6 flex flex-col space-y-4 border-2 border-red-300 bg-gradient-to-br from-red-50 to-pink-50 card-appear';
+
+            const errorIconDiv = document.createElement('div');
+            errorIconDiv.className = 'w-12 h-12 mx-auto bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center';
+            errorIconDiv.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+            `;
+            cardElement.appendChild(errorIconDiv);
+
+            const errorTitleP = document.createElement('p');
+            errorTitleP.className = 'font-bold text-lg text-red-700 text-center';
+            errorTitleP.textContent = `处理失败 (${engineTypeDisplay === TAGGER_ENGINE_NL ? 'NL Captions' : 'Booru Tags'})`;
+            cardElement.appendChild(errorTitleP);
+
+            const fileNameP = document.createElement('p');
+            fileNameP.className = 'font-semibold text-sm text-red-600 text-center truncate';
+            fileNameP.textContent = imageInfo.name;
+            cardElement.appendChild(fileNameP);
+
+            const errorTextP = document.createElement('p');
+            errorTextP.className = 'text-sm text-red-500 bg-white bg-opacity-50 rounded-lg p-3 whitespace-pre-wrap break-all';
+            errorTextP.textContent = `错误详情: ${error.message}`;
+            cardElement.appendChild(errorTextP);
+
+            return cardElement;
+        }
+
+        function handleTaggerEngineChange() {
+            appState.currentTaggerEngine = document.getElementById('taggerEngineSelect').value;
+            appState.isNLApiWarmedUp = false;
+
+            const booruTaggerSettings = document.getElementById('booruTaggerSettings');
+            const nlTaggerApiSettings = document.getElementById('nlTaggerApiSettings');
+            const booruTaggerGlobalParams = document.getElementById('booruTaggerGlobalParamsSettings');
+
+            const nlTaggerRolePromptGroup = document.getElementById('nlTaggerRolePromptGroup');
+            const booruTaggerTriggerWordSettings = document.getElementById('booruTaggerTriggerWordSettings');
+            const booruTaggerEscapeParenthesesSettings = document.getElementById('booruTaggerEscapeParenthesesSettings');
+            const nlTaggerModelInfoSpan = document.getElementById('nlTaggerModelInfoSpan');
+            const batchModeDescriptionParagraph = document.querySelector('div.glass-card.rounded-3xl.p-6.md\\:p-8.text-center.file-upload-area:not(#singleImageUploadArea) p.text-sm.text-gray-500.mb-6');
+
+
+            if (appState.currentTaggerEngine === TAGGER_ENGINE_BOORU) {
+                booruTaggerSettings.classList.remove('hidden');
+                nlTaggerApiSettings.classList.add('hidden');
+                booruTaggerGlobalParams.classList.remove('hidden');
+
+                nlTaggerRolePromptGroup.classList.add('hidden');
+                booruTaggerTriggerWordSettings.classList.remove('hidden');
+                booruTaggerEscapeParenthesesSettings.classList.remove('hidden');
+                nlTaggerModelInfoSpan.textContent = '';
+                if (batchModeDescriptionParagraph) batchModeDescriptionParagraph.textContent = '自动处理文件夹内所有图片，并将标签文件 (.txt) 保存至原位置。';
+
+
+                handleBooruTaggerModelSourceChange();
+            } else if (appState.currentTaggerEngine === TAGGER_ENGINE_NL) {
+                booruTaggerSettings.classList.add('hidden');
+                nlTaggerApiSettings.classList.remove('hidden');
+                booruTaggerGlobalParams.classList.add('hidden');
+
+                nlTaggerRolePromptGroup.classList.remove('hidden');
+                booruTaggerTriggerWordSettings.classList.add('hidden');
+                booruTaggerEscapeParenthesesSettings.classList.add('hidden');
+                if (batchModeDescriptionParagraph) batchModeDescriptionParagraph.textContent = '自动处理文件夹内所有图片，并将描述文本文件 (.txt) 保存至原位置。';
+
+
+                resetLoadedBooruTaggerState();
+                nlTaggerModelInfoSpan.textContent = `使用模型: ${appState.nlApiModelName || '未指定'}`;
+                warmUpNLApi();
+            }
+            document.getElementById('results-container').innerHTML = '';
+            appState.allProcessedResults = [];
+            resetMainProgress();
+            updateStatus("模式已切换，请重新选择图片或文件夹。", false);
+            checkRunButtonState();
+        }
+
+
+        async function downloadAllTagsAsZip() {
+            const resultsToZip = appState.allProcessedResults.filter(r => (r.tagsString || r.nlTaggerResponse) && !String(r.tagsString || (r.nlTaggerResponse && r.nlTaggerResponse.error ? (r.nlTaggerResponse.error.message || r.nlTaggerResponse.error) : JSON.stringify(r.nlTaggerResponse))).startsWith("错误:"));
+             if (resultsToZip.length === 0) {
+                showToast("没有有效的预览结果可供下载。", 'warning'); return;
+            }
+            updateStatus("正在创建ZIP文件...", true);
+            try {
+                const zip = new JSZip();
+                const engineDisplayNameForFile = appState.currentTaggerEngine === TAGGER_ENGINE_BOORU ? 'Booru_Tags' : 'NL_Captions';
+                for (const result of resultsToZip) {
+                    if (result.originalName) {
+                        let fileName, fileContent;
+                        if (appState.currentTaggerEngine === TAGGER_ENGINE_NL) {
+                            fileName = result.originalName.replace(/\.[^/.]+$/, "") + '.txt';
+                            fileContent = result.tagsString;
+                        } else {
+                            fileName = result.originalName.replace(/\.[^/.]+$/, "") + '.txt';
+                            fileContent = result.tagsString;
+                        }
+                        zip.file(fileName, fileContent);
+                    } else {
+                        console.warn("打包ZIP时跳过一个结果，因为它缺少originalName:", result);
+                    }
+                }
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const zipUrl = URL.createObjectURL(zipBlob);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                const a = document.createElement('a'); a.href = zipUrl;
+                a.download = `preview_results_${engineDisplayNameForFile}_${timestamp}.zip`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(zipUrl);
+                updateStatus("📦 ZIP文件已下载 (预览结果)。", false);
+                showToast("📦 ZIP文件已下载 (预览结果)。", 'success');
+            } catch (e) {
+                updateStatus(`创建ZIP文件失败: ${e.message}`, false);
+                showToast(`创建ZIP文件失败: ${e.message}`, 'error');
+                console.error("创建ZIP文件失败:", e);
+            } finally {
+                checkRunButtonState();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>

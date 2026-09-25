@@ -1,50 +1,57 @@
 # Web Datasets Tagger
 
-一款强大、便捷且注重隐私的**浏览器内图像自动标注工具**，无需后端，纯前端运行。
+在浏览器中整理图像数据集。以视觉 API 生成自然语言描述为主，也保留本地 Booru 标签模式。无需应用服务器，可部署到 GitHub Pages。
 
-**直接使用：访问https://vioaki.github.io/Web-Datasets-Tagger**
+[在线使用](https://vioaki.github.io/Web-Datasets-Tagger/) · [源代码](https://github.com/vioaki/Web-Datasets-Tagger)
 
----
+## 使用
 
-## 核心功能：双模智能标注
+1. 在 **Captions** 的设置中填写完整的 OpenAI-compatible `chat/completions` URL、API Key 和模型名。端点需要允许浏览器跨域请求。并发请求数可直接填写，没有应用设置的上限。
+2. 拖入图片，或选择图片/文件夹，点击生成。随时停止，恢复时仅处理未完成的图片。
+3. 点击描述编辑；`⌘ / Ctrl + Enter` 保存，`Esc` 取消。搜索可按文件名、描述或标签筛选。
+4. 导出 ZIP（保留子目录，重名结果自动编号）。支持 File System Access API 的浏览器通过“选择文件夹”导入后，还可手动写回同名 `.txt`。写回前会提示覆盖原有内容。
 
-根据您的需求，在两种强大的 AI 标注模式间自由切换。
+**Booru Tags** 使用预设模型，或导入本地 ONNX + CSV。每个 Worker 拥有独立 ONNX 会话，自动尝试 WebGPU 并回退 WASM；可设置 Worker 数、阈值、触发词与重试次数。本地模型需采用单输入 float32、NHWC/BGR、0–255 像素布局，标签行顺序必须对应输出分数。
 
-| 特性 | Booru Tags (本地模式) | NL Captions (在线模式) |
-| :--- | :--- | :--- |
-| **核心功能** | 生成关键词标签 (e.g., `1girl, blue hair`) | 生成自然语言描述 (e.g., "A girl with blue hair...") |
-| **处理位置** | **完全在您的浏览器中** (离线运行) | 通过外部 VLM API (如 GPT-4o, Gemini) |
-| **优点** | **极致隐私**<br>**速度快**<br>**无额外费用** | **理解力强**<br>**描述丰富、有上下文**<br>**高度灵活** |
-| **适用场景** | AI 绘画训练集准备、图像批量归档 | 语义化描述生成、内容创作辅助 |
+设置中可切换中文/英文。生产版支持安装和离线打开；本地推理需先下载/导入模型并至少运行一次，以缓存推理资源。Captions 仍需要 API 连接。
 
----
+## 数据与缓存
 
-## 主要特性
+- Captions 将图片和 API Key 直接发往配置的端点；Booru 推理留在浏览器中。
+- 设置（包含 API Key）保存在当前浏览器的 localStorage。没有遥测或应用后端。
+- 原始图片只保留 File 引用；图库使用最长边 512px 的缩略图和虚拟列表。刷新后需要重新导入图片。
+- 模型使用原 v1.3 的 IndexedDB 数据库与记录格式，已有模型无需再下载。断点下载使用独立数据库，不升级或破坏旧库。
+- 服务器提供 Range 与可跨域读取的 ETag/Last-Modified、Content-Range 时可续传；否则安全地完整重下。浏览器存储配额不足时下载和推理仍可继续。
+- GitHub Pages 不提供 COOP/COEP 响应头。WASM 每会话固定单线程，并行来自独立 Worker，不依赖 SharedArrayBuffer。
 
-*   **双 AI 引擎**：内置 ONNX 模型实现本地高速打标，同时支持集成外部 VLM API 实现更智能的描述生成。
-*   **强大的文件处理**：支持拖拽上传、多图预览，更能**批量处理整个文件夹**，并将标签 (`.txt`) 自动保存在原图旁。
-*   **灵活的模型管理**：一键下载并缓存预设模型（支持镜像加速），也允许上传您自己的本地 ONNX 模型和标签文件。
-*   **精细化控制**：可自定义标签识别阈值、添加触发词、配置 API 参数、设置角色名以引导 AI 生成等。
-*   **纯净 Web 体验**：单个 `index.html` 文件，无后端依赖，确保数据 100% 留存在您的设备上（本地模式下）。
+## 开发与验证
 
----
+需要 Node.js 22.12+（CI 使用 Node 22）。
 
-## 快速上手
+```sh
+npm ci --allow-remote=all
+npm run dev
+npm run typecheck
+npm test -- --run
+npm run build
+npm run preview
+```
 
-1.  **访问**: 打开 **[在线体验地址](https://vioaki.github.io/Web-Datasets-Tagger/)**。
-2.  **选择模式**: 在左侧选择 `Booru Tags` 或 `NL Captions`。
-3.  **配置**:
-    *   **Booru Tags**: 选择一个预设模型并点击“下载并加载”。
-    *   **NL Captions**: 输入您的 API URL、Key 和模型名称。
-4.  **处理**: 拖入图片进行预览，或选择文件夹进行批量处理，然后点击“开始打标”！
+`--allow-remote=all` 用于 npm 12 的远程依赖许可；较早的 npm 可直接 `npm ci`。
 
-> **提示**: **批量处理文件夹**功能需要通过 `https://` 或本地服务器 (`localhost`) 访问，直接打开 `file:///` 路径会受浏览器安全限制。
+Vite 的相对 `base` 使资源、Worker、WASM、字体和 Service Worker 可运行在 `/Web-Datasets-Tagger/` 等子路径。字体与 ONNX Runtime 随构建打包。
 
----
+GitHub Actions 对 PR 执行类型检查、测试和构建；`main` 成功构建后部署 Pages。仓库的 **Settings → Pages → Source** 需使用 **GitHub Actions**。
 
-## 技术栈
+`tests/fixtures/generate.py` 可重建小型测试 ONNX、标签表和图片。该模型计算图片的 BGR 通道均值，只用于检查真实 Worker/ORT 管线，不是训练过的标签模型。
 
-- **核心**: Vanilla JavaScript, ONNX Runtime Web, Fetch API
-- **UI**: Tailwind CSS
-- **数据**: IndexedDB, Local Storage
-- **工具**: JSZip, File System Access API
+## 结构
+
+- `src/core/`：推理、任务队列、API、模型缓存/下载、图像处理、导出。
+- `src/store/`：应用状态与持久化设置。
+- `src/components/`、`src/design/`：画册式界面与设计变量。
+- `src/i18n/`：中英翻译。
+- `build/pwa.ts`：静态应用缓存与更新；不缓存 API 请求。
+- `legacy/original-v1.3.html`：重构所依据的单文件原版；`archive/` 保留仓库历史版本。
+
+遵循原仓库的 [AGPL-3.0 许可证](LICENSE)。

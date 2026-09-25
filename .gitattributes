@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Preserve the exact single-file references, including their original CRLF.
+legacy/** -text -whitespace
+archive/** -text -whitespace

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+.claude/
+test-results/
+playwright-report/
+
+.DS_Store
+*.log
+npm-debug.log*
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
