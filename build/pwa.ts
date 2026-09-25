@@ -20,7 +20,16 @@ const CACHE = PREFIX + ':${hash >>> 0}';
 const SHELL = ${JSON.stringify(assets)}.map(path => new URL(path, self.registration.scope).href);
 const RUNTIME = ${JSON.stringify(wasm)}.map(path => new URL(path, self.registration.scope).href);
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(SHELL);
+    // Hashed WASM URLs are immutable. Keep already-used runtimes across updates
+    // so updating the UI doesn't make a cached model require a new download.
+    for (const url of RUNTIME) {
+      const existing = await caches.match(url);
+      if (existing) await cache.put(url, existing);
+    }
+  })());
 });
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
