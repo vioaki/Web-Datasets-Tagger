@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <path id="segment" d="M32 32C25 29 21 24 21 18C21 12 26 8 32 8C38 8 43 12 43 18C43 24 39 29 32 32Z"/>
+  </defs>
+  <g transform="translate(32 32) scale(1.25) translate(-32 -32)">
+    <g fill="#5B9BD5">
+      <use href="#segment"/>
+      <use href="#segment" transform="rotate(72 32 32)"/>
+      <use href="#segment" transform="rotate(144 32 32)"/>
+      <use href="#segment" transform="rotate(216 32 32)"/>
+      <use href="#segment" transform="rotate(288 32 32)"/>
+    </g>
+    <circle cx="32" cy="32" r="4" fill="#fbfaf8"/>
+  </g>
+</svg>

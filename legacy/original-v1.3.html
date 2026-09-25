@@ -10,11 +10,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
-            --forget-me-not-blue: #5B9BD5;
-            --forget-me-not-light: #7CB5E3;
-            --forget-me-not-dark: #4A8BC2;
-            --forget-me-not-pale: #E6F2FF;
-            --forget-me-not-soft: #B8D4F1;
+            --accent-blue: #5B9BD5;
+            --accent-light: #7CB5E3;
+            --accent-dark: #4A8BC2;
+            --accent-pale: #E6F2FF;
+            --accent-soft: #B8D4F1;
             
             --primary-gradient: linear-gradient(135deg, #5B9BD5 0%, #7CB5E3 100%);
             --secondary-gradient: linear-gradient(135deg, #4A8BC2 0%, #5B9BD5 100%);
@@ -73,7 +73,7 @@
             left: 0;
             right: 0;
             height: 150px;
-            background: linear-gradient(180deg, var(--forget-me-not-pale) 0%, transparent 100%);
+            background: linear-gradient(180deg, var(--accent-pale) 0%, transparent 100%);
             pointer-events: none;
         }
         .main-title {
@@ -167,14 +167,14 @@
         }
         .btn-outline {
             background: rgba(255, 255, 255, 0.9);
-            color: var(--forget-me-not-blue);
+            color: var(--accent-blue);
             border: 2px solid rgba(91, 155, 213, 0.3);
             backdrop-filter: blur(10px);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .btn-outline:hover {
-            background: var(--forget-me-not-pale);
-            border-color: var(--forget-me-not-blue);
+            background: var(--accent-pale);
+            border-color: var(--accent-blue);
             transform: translateY(-1px);
         }
         .input-field, select, input[type="password"], input[type="text"] {
@@ -187,7 +187,7 @@
         }
         .input-field:focus, select:focus, input[type="password"]:focus, input[type="text"]:focus {
             background: rgba(255, 255, 255, 0.95);
-            border-color: var(--forget-me-not-blue);
+            border-color: var(--accent-blue);
             box-shadow: 0 0 0 4px rgba(91, 155, 213, 0.1);
             transform: translateY(-1px);
             outline: none;
@@ -198,7 +198,7 @@
         }
         .input-field-subtle-accent:focus {
             background: rgba(255, 255, 255, 1);
-            border-color: var(--forget-me-not-blue);
+            border-color: var(--accent-blue);
             box-shadow: 0 0 0 4px rgba(91, 155, 213, 0.1);
         }
         input[type="file"].input-field-file {
@@ -212,8 +212,8 @@
             width: 100%;
         }
         input[type="file"].input-field-file::file-selector-button {
-            background: linear-gradient(135deg, var(--forget-me-not-pale), var(--forget-me-not-soft));
-            color: var(--forget-me-not-dark);
+            background: linear-gradient(135deg, var(--accent-pale), var(--accent-soft));
+            color: var(--accent-dark);
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 0.5rem;
@@ -223,7 +223,7 @@
             transition: all 0.2s ease-in-out;
         }
         input[type="file"].input-field-file::file-selector-button:hover {
-            background: linear-gradient(135deg, var(--forget-me-not-soft), var(--forget-me-not-light));
+            background: linear-gradient(135deg, var(--accent-soft), var(--accent-light));
             transform: translateY(-1px);
         }
         input[type="file"].input-field-file:hover {
@@ -405,15 +405,15 @@
             width: 24px;
             height: 24px;
             border: 3px solid rgba(91, 155, 213, 0.2);
-            border-top-color: var(--forget-me-not-blue);
+            border-top-color: var(--accent-blue);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
         .spinner.vlm-api {
-            border-top-color: var(--forget-me-not-dark);
-            border-right-color: var(--forget-me-not-light);
-            border-bottom-color: var(--forget-me-not-blue);
-            border-left-color: var(--forget-me-not-soft);
+            border-top-color: var(--accent-dark);
+            border-right-color: var(--accent-light);
+            border-bottom-color: var(--accent-blue);
+            border-left-color: var(--accent-soft);
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -452,8 +452,8 @@
             }
         }
         .help-tab-button.active {
-            background: linear-gradient(135deg, var(--forget-me-not-pale), var(--forget-me-not-soft));
-            color: var(--forget-me-not-dark);
+            background: linear-gradient(135deg, var(--accent-pale), var(--accent-soft));
+            color: var(--accent-dark);
             font-weight: 600;
             transform: translateX(4px);
         }
@@ -463,13 +463,13 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .file-upload-area:hover, .file-upload-area.dragover {
-            border-color: var(--forget-me-not-blue);
-            background: var(--forget-me-not-pale);
+            border-color: var(--accent-blue);
+            background: var(--accent-pale);
             transform: translateY(-2px);
         }
         .tag-pill {
             background: linear-gradient(135deg, rgba(91, 155, 213, 0.1), rgba(124, 181, 227, 0.1));
-            color: var(--forget-me-not-dark);
+            color: var(--accent-dark);
             border: 1px solid rgba(91, 155, 213, 0.2);
             animation-name: tagPop;
             animation-duration: 0.4s;
@@ -484,8 +484,8 @@
         }
         .tag-pill-api {
             background: linear-gradient(135deg, #E6F2FF, #D1E7FF);
-            color: var(--forget-me-not-dark);
-            border: 1px solid var(--forget-me-not-soft);
+            color: var(--accent-dark);
+            border: 1px solid var(--accent-soft);
         }
         .tag-pill-api:hover {
             background: linear-gradient(135deg, #D1E7FF, #B8D4F1);
@@ -813,7 +813,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                         <div id="singleImageUploadArea" class="glass-card rounded-3xl p-6 md:p-8 text-center file-upload-area card-appear">
                             <div class="glass-button-icon w-16 h-16 mx-auto mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" style="color: var(--forget-me-not-blue);" viewBox="0 0 20 20" fill="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" style="color: var(--accent-blue);" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
                                 </svg>
                             </div>
@@ -825,7 +825,7 @@
                         </div>
                         <div class="glass-card rounded-3xl p-6 md:p-8 text-center file-upload-area card-appear" style="animation-delay: 0.1s;">
                             <div class="glass-button-icon w-16 h-16 mx-auto mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" style="color: var(--forget-me-not-blue);" viewBox="0 0 20 20" fill="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" style="color: var(--accent-blue);" viewBox="0 0 20 20" fill="currentColor">
                                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                                 </svg>
                             </div>

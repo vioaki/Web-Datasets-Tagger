@@ -1,5 +1,6 @@
 import { t } from '../i18n/translate'
 import { useApp, DEFAULT_SYSTEM_PROMPT } from '../store/useApp'
+import { DEFAULT_SETTINGS } from '../store/settings'
 import { cloneElement, useId, useState, type ReactElement } from 'react'
 import { MODELS } from '../core/models/registry'
 import { useLocale } from '../i18n'
@@ -39,7 +40,7 @@ export function SettingsPanel() {
                 <input
                   className="input"
                   type="text"
-                  placeholder="https://…/v1/chat/completions"
+                  placeholder={DEFAULT_SETTINGS.apiUrl}
                   value={settings.apiUrl}
                   onChange={(e) => setSetting('apiUrl', e.target.value)}
                 />

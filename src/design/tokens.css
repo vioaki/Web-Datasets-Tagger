@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────
    Design tokens — Web Datasets Tagger
-   Theme: forget-me-not blue (#5B9BD5) on warm white.
+   Theme: blue (#5B9BD5) on warm white.
    Blue is reserved for interactive elements only. Never decoration.
    ───────────────────────────────────────────────────────────── */
 
@@ -20,7 +20,7 @@
   --line:       rgba(23, 25, 30, 0.09);
   --line-strong: rgba(23, 25, 30, 0.16);
 
-  /* Primary — forget-me-not, reserved for actions and focus */
+  /* Primary — reserved for actions and focus */
   --blue:        #5b9bd5;
   --blue-deep:   #4a8bc2;  /* hover / active */
   --blue-bright: #7cb5e3;  /* focus glow */

@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS: Settings = {
   triggerWord: '', triggerPosition: 'none', escapeParentheses: true,
   workerCount: 0, executionProvider: 'auto', modelName: 'wd-swinv2-tagger-v3', useMirror: false,
   modelSource: 'preset', localModelName: '',
-  apiUrl: '', apiKey: '', apiModel: '', useSampling: false,
+  apiUrl: 'https://api.example.com/v1/chat/completions', apiKey: '', apiModel: '', useSampling: false,
   temperature: 0.7, topP: 0.9, apiConcurrency: 8, maxRetries: 2,
   systemPrompt: DEFAULT_SYSTEM_PROMPT, roleName: '',
 }
@@ -16,7 +16,7 @@ export function readSettings(): Settings {
   try {
     const current = localStorage.getItem('tagger-settings-v2')
     const saved = current ? JSON.parse(current) : {
-      apiUrl: localStorage.getItem('nlTaggerApiUrl_v1_3_3') || '',
+      apiUrl: localStorage.getItem('nlTaggerApiUrl_v1_3_3') || DEFAULT_SETTINGS.apiUrl,
       apiKey: localStorage.getItem('nlTaggerApiKey_v1_3_3') || '',
       apiModel: localStorage.getItem('nlTaggerModelName_v1_3_3') || '',
     }
@@ -24,6 +24,7 @@ export function readSettings(): Settings {
     for (const key of Object.keys(settings) as (keyof Settings)[]) {
       if (typeof saved[key] === typeof settings[key]) Object.assign(settings, { [key]: saved[key] })
     }
+    if (!settings.apiUrl.trim()) settings.apiUrl = DEFAULT_SETTINGS.apiUrl
     return settings
   } catch { return { ...DEFAULT_SETTINGS } }
 }

@@ -5,7 +5,7 @@ export function pwa(): Plugin {
     name: 'tagger-offline',
     apply: 'build',
     generateBundle(_, bundle) {
-      const assets = ['index.html', 'icon.svg', 'manifest.webmanifest', ...Object.keys(bundle).filter((name) => /\.(?:js|mjs|css|woff2)$/.test(name))]
+      const assets = ['index.html', 'icon.svg', 'favicon.svg', 'manifest.webmanifest', ...Object.keys(bundle).filter((name) => /\.(?:js|mjs|css|woff2)$/.test(name))]
       const wasm = Object.keys(bundle).filter((name) => name.endsWith('.wasm'))
       let hash = 5381
       for (const char of assets.join('|') + Date.now()) hash = (hash * 33) ^ char.charCodeAt(0)
